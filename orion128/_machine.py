@@ -84,7 +84,12 @@ class Orion128Machine(z80.I8080Machine):
         self.set_memory_block(IO_BASE, b'\xff' * IO_SIZE)
 
         self.pc = MONITOR_BASE
+
+        # Watch only the I/O and ROM region for writes. Every other write
+        # goes straight to memory in the core, which keeps the processor
+        # fast even while a program repaints the screen.
         self.set_write_callback(self.__on_write)
+        self.mark_addrs(IO_BASE, 0x10000 - IO_BASE, self.WRITE_MARK)
 
     def load_romdisk(self, romdisk: bytes) -> None:
         '''Attach a ROM-disk image, served through the F500 8255.'''
@@ -113,6 +118,7 @@ class Orion128Machine(z80.I8080Machine):
         self.set_memory_block(KEYBOARD_SENSE_C, bytes([sense_c]))
 
     def __on_write(self, addr: int, value: int) -> None:
+        # Only F400-FFFF is marked for this handler.
         # The Monitor ROM and the system latches sit at MONITOR_BASE and
         # above. Capture the latch writes and never touch the ROM.
         if addr >= MONITOR_BASE:
@@ -122,16 +128,11 @@ class Orion128Machine(z80.I8080Machine):
         # The 8255 region. Writing the ROM-disk address ports makes the
         # addressed byte appear at its data port. Writing the keyboard scan
         # column updates the sense rows for the pressed keys.
-        if addr >= IO_BASE:
-            if self.__romdisk and ROMDISK_PORT < addr <= ROMDISK_PORT + 2:
-                self.__set_romdisk_address(addr, value)
-            elif addr == KEYBOARD_SCAN:
-                self.__scan = value
-                self.__update_keyboard()
-            return
-
-        # Ordinary RAM, including the screen.
-        self.set_memory_block(addr, bytes([value]))
+        if self.__romdisk and ROMDISK_PORT < addr <= ROMDISK_PORT + 2:
+            self.__set_romdisk_address(addr, value)
+        elif addr == KEYBOARD_SCAN:
+            self.__scan = value
+            self.__update_keyboard()
 
     def __set_romdisk_address(self, addr: int, value: int) -> None:
         if addr == ROMDISK_PORT + 1:
