@@ -109,6 +109,26 @@ def test_keyboard() -> None:
     assert machine.memory[0x1000] == 0xf7
 
 
+def test_ram_disk() -> None:
+    # Preload a record, then read the RAM-disk page's first byte back to
+    # common memory.
+    code = bytes([
+        0x3e, 0x01, 0xd3, 0xf9,  # select page 1 (the RAM-disk)
+        0x3a, 0x00, 0x00,        # LDA 0x0000
+        0x32, 0x00, 0xf0,        # STA 0xF000  (common memory)
+        0xaf, 0xd3, 0xf9,        # select page 0
+        0x76,                    # HLT
+    ])
+    monitor = code + bytes(orion128.MONITOR_SIZE - len(code))
+    machine = orion128.Orion128Machine(monitor)
+
+    record = b'HELLO   ' + bytes([0x00, 0x10, 0x08, 0x00, 0, 0, 0, 0])
+    machine.load_ram_disk([record])
+    machine.ticks_to_stop = 1000
+    machine.run()
+    assert machine.memory[0xf000] == ord('H')
+
+
 def test_render_monochrome() -> None:
     machine = orion128.Orion128Machine()
     machine.set_memory_block(orion128.VIDEO_BASE, bytes([0x80]))

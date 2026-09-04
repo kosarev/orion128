@@ -48,19 +48,23 @@ def _take_path(args: list[str], option: str) -> str:
     return args.pop(0)
 
 
-def _parse_args(args: list[str]) -> tuple[str | None, str | None]:
-    '''Read the leading '--monitor PATH' and '--romdisk PATH' options.'''
+def _parse_args(args: list[str]) -> tuple[str | None, str | None, list[str]]:
+    '''Read the leading options: '--monitor PATH', '--romdisk PATH' and
+    '--ord PATH' (repeatable, each preloaded onto the RAM-disk).'''
     monitor = None
     romdisk = None
+    ords = []
     while args and args[0].startswith('--'):
         option = args.pop(0)
         if option == '--monitor':
             monitor = _take_path(args, option)
         elif option == '--romdisk':
             romdisk = _take_path(args, option)
+        elif option == '--ord':
+            ords.append(_take_path(args, option))
         else:
             sys.exit(f'orion128: unknown option: {option}')
-    return monitor, romdisk
+    return monitor, romdisk, ords
 
 
 def _read_file(path: str) -> bytes:
@@ -73,16 +77,19 @@ def main() -> None:
 
     With '--monitor PATH' it loads that Monitor ROM and runs the machine,
     showing the screen until the window is closed. '--romdisk PATH' attaches
-    a ROM-disk, which the Monitor boots into (ORDOS). With no ROM it just
-    shows a test pattern.
+    a ROM-disk, which the Monitor boots into (ORDOS). '--ord PATH' preloads
+    an ORDOS file onto the RAM-disk (drive B:); repeat it for several files.
+    With no ROM it just shows a test pattern.
     '''
-    monitor, romdisk = _parse_args(sys.argv[1:])
+    monitor, romdisk, ords = _parse_args(sys.argv[1:])
 
     machine = Orion128Machine()
     if monitor is not None:
         machine.load_monitor(_read_file(monitor))
         if romdisk is not None:
             machine.load_romdisk(_read_file(romdisk))
+        if ords:
+            machine.load_ram_disk([_read_file(path) for path in ords])
     else:
         _draw_test_pattern(machine)
 

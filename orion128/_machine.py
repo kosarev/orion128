@@ -64,6 +64,10 @@ PAGE_SELECT_PORT = 0xf9
 PAGE_SELECT = 0xf900
 PAGED_SIZE = 0xf000
 
+# Pages 1, 2 and 3 are ORDOS's read/write RAM-disks, drives B:, C: and D:.
+# A preloaded RAM-disk goes to page 1, drive B:.
+RAM_DISK_PAGE = 1
+
 # Colour control at F800 (or port F8). Bit D2 turns colour on; without it
 # the screen is monochrome. In 16-colour mode a colour byte at the same
 # address in page 1 holds the background colour in its top nibble and the
@@ -137,6 +141,22 @@ class Orion128Machine(z80.I8080Machine):
         self.__romdisk = romdisk
         self.__romdisk_addr = 0
         self.set_memory_block(ROMDISK_PORT, bytes([romdisk[0]]))
+
+    def load_ram_disk(self, files: list[bytes]) -> None:
+        '''Fill the RAM-disk (drive B:, page 1) with ORDOS file records.
+
+        Each ORDOS file is a complete record: an 8-byte name, a 2-byte load
+        address, a 2-byte size, four more header bytes, then the data. The
+        records lie end to end and an FF byte closes the directory. ORDOS
+        keeps such a preloaded disk instead of clearing it at start-up.
+        '''
+        image = bytearray(PAGED_SIZE)
+        offset = 0
+        for record in files:
+            image[offset:offset + len(record)] = record
+            offset += len(record)
+        image[offset] = 0xff
+        self.__page_images[RAM_DISK_PAGE][:] = image
 
     def set_keys(self, keys: set[tuple[int, int]]) -> None:
         '''Set the pressed keys as (column, row) matrix crossings.'''
