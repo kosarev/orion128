@@ -7,6 +7,7 @@
 #   Published under the MIT license.
 
 import ctypes
+import os
 
 import numpy as np
 import numpy.typing as npt
@@ -23,13 +24,22 @@ class Display:
     '''
 
     def __init__(self, scale: int = 2, title: str = 'Orion-128') -> None:
+        # On Wayland, use the Wayland driver so the window follows the
+        # system display scaling instead of being upscaled by XWayland.
+        on_wayland = 'WAYLAND_DISPLAY' in os.environ
+        if on_wayland and 'SDL_VIDEODRIVER' not in os.environ:
+            os.environ['SDL_VIDEODRIVER'] = 'wayland'
+
         sdl2.SDL_Init(sdl2.SDL_INIT_VIDEO)
 
+        # SDL_WINDOW_ALLOW_HIGHDPI makes the drawable the full device-pixel
+        # size on a scaled display, so the window is the intended physical
+        # size and the screen is drawn crisply rather than being upscaled.
         self.__window = sdl2.SDL_CreateWindow(
             title.encode(),
             sdl2.SDL_WINDOWPOS_CENTERED, sdl2.SDL_WINDOWPOS_CENTERED,
             SCREEN_WIDTH * scale, SCREEN_HEIGHT * scale,
-            sdl2.SDL_WINDOW_SHOWN)
+            sdl2.SDL_WINDOW_SHOWN | sdl2.SDL_WINDOW_ALLOW_HIGHDPI)
 
         self.__renderer = sdl2.SDL_CreateRenderer(self.__window, -1, 0)
 
