@@ -84,12 +84,9 @@ class Display:
         self.__quit = False
         self.__keys_down: set[int] = set()
 
-    def update(self, screen: npt.NDArray[np.uint8]) -> None:
-        '''Show the given SCREEN_HEIGHT by SCREEN_WIDTH pixel bitmap.'''
-        # Turn each 0 or 1 pixel into a black or white RGB triple.
-        frame = np.empty((SCREEN_HEIGHT, SCREEN_WIDTH, 3), dtype=np.uint8)
-        frame[:] = (screen * 0xff)[:, :, np.newaxis]
-
+    def update(self, frame: npt.NDArray[np.uint8]) -> None:
+        '''Show the given SCREEN_HEIGHT by SCREEN_WIDTH RGB frame.'''
+        frame = np.ascontiguousarray(frame, dtype=np.uint8)
         sdl2.SDL_UpdateTexture(
             self.__texture, None, frame.ctypes.data, SCREEN_WIDTH * 3)
         sdl2.SDL_RenderClear(self.__renderer)

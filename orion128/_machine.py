@@ -64,6 +64,31 @@ PAGE_SELECT_PORT = 0xf9
 PAGE_SELECT = 0xf900
 PAGED_SIZE = 0xf000
 
+# Colour control at F800 (or port F8). Bit D2 turns colour on; without it
+# the screen is monochrome. In 16-colour mode a colour byte at the same
+# address in page 1 holds the background colour in its top nibble and the
+# foreground in its bottom nibble, and the pixel bit chooses between them.
+COLOUR_CONTROL = 0xf800
+COLOUR_CONTROL_PORT = 0xf8
+COLOUR_ON = 0x04
+
+# Monochrome is the Orion's green on black.
+_GREEN = (0x30, 0xff, 0x30)
+
+
+# The 16 colours, one bit each for intensity, red, green and blue.
+def _build_palette() -> npt.NDArray[np.uint8]:
+    palette = np.zeros((16, 3), dtype=np.uint8)
+    for code in range(16):
+        level = 0xff if code & 0x08 else 0xaa
+        palette[code] = (level if code & 0x04 else 0,
+                         level if code & 0x02 else 0,
+                         level if code & 0x01 else 0)
+    return palette
+
+
+_PALETTE = _build_palette()
+
 
 class Orion128Machine(z80.I8080Machine):
     '''The Orion-128 machine: the i8080 core with the Orion's memory.
@@ -84,6 +109,7 @@ class Orion128Machine(z80.I8080Machine):
         self.__keys: set[tuple[int, int]] = set()
         self.__page_images = {page: bytearray(PAGED_SIZE) for page in range(4)}
         self.__current_page = 0
+        self.__colour_control = 0
         if monitor is not None:
             self.load_monitor(monitor)
 
@@ -142,6 +168,8 @@ class Orion128Machine(z80.I8080Machine):
             self.__system_ports[addr] = value
             if addr == PAGE_SELECT:
                 self.__select_page(value)
+            elif addr == COLOUR_CONTROL:
+                self.__colour_control = value
             return
 
         # The 8255 region. Writing the ROM-disk address ports makes the
@@ -156,6 +184,8 @@ class Orion128Machine(z80.I8080Machine):
     def __on_output(self, port: int, value: int) -> None:
         if port & 0xff == PAGE_SELECT_PORT:
             self.__select_page(value)
+        elif port & 0xff == COLOUR_CONTROL_PORT:
+            self.__colour_control = value
 
     def __select_page(self, page: int) -> None:
         page &= 0x03
@@ -177,13 +207,43 @@ class Orion128Machine(z80.I8080Machine):
         byte = self.__romdisk[self.__romdisk_addr % len(self.__romdisk)]
         self.set_memory_block(ROMDISK_PORT, bytes([byte]))
 
+    def __page_memory(self, page: int) -> bytes | bytearray | memoryview:
+        if page == self.__current_page:
+            return self.memory
+        return self.__page_images[page]
+
     def read_screen(self) -> npt.NDArray[np.uint8]:
         '''Return the screen as a SCREEN_HEIGHT by SCREEN_WIDTH array of
         pixels, each 0 or 1.'''
         video = np.frombuffer(
-            self.memory, dtype=np.uint8, count=VIDEO_SIZE, offset=VIDEO_BASE)
+            self.__page_memory(0), dtype=np.uint8, count=VIDEO_SIZE,
+            offset=VIDEO_BASE)
 
         # Bytes go down a column, so the buffer is columns of pixels; put
         # the rows first, then expand each byte into its eight pixels.
         columns = video.reshape(SCREEN_WIDTH // 8, SCREEN_HEIGHT)
         return np.unpackbits(columns.T, axis=1)
+
+    def render(self) -> npt.NDArray[np.uint8]:
+        '''Return the screen as a SCREEN_HEIGHT by SCREEN_WIDTH RGB frame,
+        in the current colour mode.'''
+        pixels = self.read_screen()
+
+        # Monochrome until a program turns colour on.
+        if not self.__colour_control & COLOUR_ON:
+            frame = np.zeros((SCREEN_HEIGHT, SCREEN_WIDTH, 3), dtype=np.uint8)
+            frame[pixels != 0] = _GREEN
+            return frame
+
+        # 16-colour: the colour byte for each pixel byte is at the same
+        # address in page 1. Its top nibble is the background colour and its
+        # bottom nibble the foreground; the pixel bit chooses between them.
+        colour = np.frombuffer(
+            self.__page_memory(1), dtype=np.uint8, count=VIDEO_SIZE,
+            offset=VIDEO_BASE)
+        per_byte = colour.reshape(SCREEN_WIDTH // 8, SCREEN_HEIGHT).T
+        per_pixel = np.repeat(per_byte, 8, axis=1)
+        foreground = per_pixel & 0x0f
+        background = per_pixel >> 4
+        index = np.where(pixels != 0, foreground, background)
+        return _PALETTE[index]

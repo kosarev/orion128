@@ -109,6 +109,16 @@ def test_keyboard() -> None:
     assert machine.memory[0x1000] == 0xf7
 
 
+def test_render_monochrome() -> None:
+    machine = orion128.Orion128Machine()
+    machine.set_memory_block(orion128.VIDEO_BASE, bytes([0x80]))
+    frame = machine.render()
+    assert frame.shape == (orion128.SCREEN_HEIGHT, orion128.SCREEN_WIDTH, 3)
+    # The lit top-left pixel is drawn, the next one is dark.
+    assert frame[0, 0].any()
+    assert not frame[0, 1].any()
+
+
 def test_screen_pixel_layout() -> None:
     machine = orion128.Orion128Machine()
     screen = machine.read_screen()

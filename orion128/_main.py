@@ -94,7 +94,7 @@ def main() -> None:
                 machine.set_keys(display.pressed_keys())
                 machine.ticks_to_stop = ticks_per_frame
                 machine.run()
-            display.update(machine.read_screen())
+            display.update(machine.render())
             time.sleep(1 / FRAMES_PER_SECOND)
     finally:
         display.close()
