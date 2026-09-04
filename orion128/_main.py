@@ -91,6 +91,7 @@ def main() -> None:
     try:
         while not display.closed():
             if monitor is not None:
+                machine.set_keys(display.pressed_keys())
                 machine.ticks_to_stop = ticks_per_frame
                 machine.run()
             display.update(machine.read_screen())
