@@ -54,6 +54,16 @@ KEYBOARD_SCAN = 0xf400
 KEYBOARD_SENSE = 0xf401
 KEYBOARD_SENSE_C = 0xf402
 
+# Memory paging. The processor's page for the 0x0000-0xEFFF region is
+# selected through port F9 (or the F900 latch). The selected page is
+# exposed in the core's memory, so reads and writes run at full speed; the
+# other pages are held aside as images. Switching pages saves the exposed
+# page back to its image and copies the newly selected image into the
+# address space. F000-FFFF is common to all pages and never swapped.
+PAGE_SELECT_PORT = 0xf9
+PAGE_SELECT = 0xf900
+PAGED_SIZE = 0xf000
+
 
 class Orion128Machine(z80.I8080Machine):
     '''The Orion-128 machine: the i8080 core with the Orion's memory.
@@ -72,6 +82,8 @@ class Orion128Machine(z80.I8080Machine):
         self.__romdisk_addr = 0
         self.__scan = 0xff
         self.__keys: set[tuple[int, int]] = set()
+        self.__page_images = {page: bytearray(PAGED_SIZE) for page in range(4)}
+        self.__current_page = 0
         if monitor is not None:
             self.load_monitor(monitor)
 
@@ -90,6 +102,9 @@ class Orion128Machine(z80.I8080Machine):
         # fast even while a program repaints the screen.
         self.set_write_callback(self.__on_write)
         self.mark_addrs(IO_BASE, 0x10000 - IO_BASE, self.WRITE_MARK)
+
+        # Port F9 selects the memory page.
+        self.set_output_callback(self.__on_output)
 
     def load_romdisk(self, romdisk: bytes) -> None:
         '''Attach a ROM-disk image, served through the F500 8255.'''
@@ -118,11 +133,15 @@ class Orion128Machine(z80.I8080Machine):
         self.set_memory_block(KEYBOARD_SENSE_C, bytes([sense_c]))
 
     def __on_write(self, addr: int, value: int) -> None:
-        # Only F400-FFFF is marked for this handler.
+        # Only F400-FFFF is marked for this handler; the paged region below
+        # writes straight to the core's memory.
         # The Monitor ROM and the system latches sit at MONITOR_BASE and
-        # above. Capture the latch writes and never touch the ROM.
+        # above. Capture the latch writes and never touch the ROM. The F900
+        # latch also selects the memory page.
         if addr >= MONITOR_BASE:
             self.__system_ports[addr] = value
+            if addr == PAGE_SELECT:
+                self.__select_page(value)
             return
 
         # The 8255 region. Writing the ROM-disk address ports makes the
@@ -133,6 +152,22 @@ class Orion128Machine(z80.I8080Machine):
         elif addr == KEYBOARD_SCAN:
             self.__scan = value
             self.__update_keyboard()
+
+    def __on_output(self, port: int, value: int) -> None:
+        if port & 0xff == PAGE_SELECT_PORT:
+            self.__select_page(value)
+
+    def __select_page(self, page: int) -> None:
+        page &= 0x03
+        if page == self.__current_page:
+            return
+
+        # Save the exposed page back to its image, then expose the newly
+        # selected page. The core's memory always holds the current page,
+        # so ordinary reads and writes stay at full speed.
+        self.__page_images[self.__current_page][:] = self.memory[:PAGED_SIZE]
+        self.set_memory_block(0, self.__page_images[page])
+        self.__current_page = page
 
     def __set_romdisk_address(self, addr: int, value: int) -> None:
         if addr == ROMDISK_PORT + 1:
