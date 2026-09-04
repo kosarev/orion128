@@ -149,12 +149,19 @@ class Orion128Machine(z80.I8080Machine):
         address, a 2-byte size, four more header bytes, then the data. The
         records lie end to end and an FF byte closes the directory. ORDOS
         keeps such a preloaded disk instead of clearing it at start-up.
+
+        On disk the size field is the data length, and ORDOS steps to the
+        next record by it. A stored .ORD file instead holds the whole file
+        length there, 16 too many, so rewrite it to the data length.
         '''
         image = bytearray(PAGED_SIZE)
         offset = 0
         for record in files:
-            image[offset:offset + len(record)] = record
-            offset += len(record)
+            entry = bytearray(record)
+            data_size = len(entry) - 16
+            entry[10:12] = data_size.to_bytes(2, 'little')
+            image[offset:offset + len(entry)] = entry
+            offset += len(entry)
         image[offset] = 0xff
         self.__page_images[RAM_DISK_PAGE][:] = image
 
