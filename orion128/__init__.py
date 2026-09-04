@@ -7,6 +7,7 @@
 #   Published under the MIT license.
 
 from ._machine import (
+    CPU_FREQUENCY,
     IO_BASE,
     IO_SIZE,
     MONITOR_BASE,
@@ -20,6 +21,7 @@ from ._machine import (
 from ._main import main
 
 __all__ = [
+    'CPU_FREQUENCY',
     'IO_BASE',
     'IO_SIZE',
     'MONITOR_BASE',

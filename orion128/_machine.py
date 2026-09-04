@@ -31,6 +31,9 @@ VIDEO_SIZE = (SCREEN_WIDTH // 8) * SCREEN_HEIGHT
 MONITOR_BASE = 0xf800
 MONITOR_SIZE = 0x800
 
+# The processor runs at about 2.5 MHz.
+CPU_FREQUENCY = 2_500_000
+
 # The Orion reaches its hardware through memory, not through i8080 ports.
 # The 8255 chips (keyboard, ROM-disk, user ports) occupy F400-F7FF, and the
 # system latches (colour, RAM page, screen page) share F800-FFFF with the
