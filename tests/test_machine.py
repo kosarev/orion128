@@ -64,6 +64,29 @@ def test_romdisk() -> None:
     assert machine.memory[0x1000] == 0x5a
 
 
+def test_keyboard() -> None:
+    # A monitor that drives scan column 2 low, reads the sense rows, stores
+    # them to RAM, then halts.
+    code = bytes([
+        0x3e, 0xfb,        # MVI A, 0xFB   -- column 2 low
+        0x32, 0x00, 0xf4,  # STA 0xF400    -- scan
+        0x3a, 0x01, 0xf4,  # LDA 0xF401    -- sense
+        0x32, 0x00, 0x10,  # STA 0x1000
+        0x76,              # HLT
+    ])
+    monitor = code + bytes(orion128.MONITOR_SIZE - len(code))
+    machine = orion128.Orion128Machine(monitor)
+
+    # A key at column 2, row 3, plus one on another column that must stay
+    # invisible while column 2 is scanned.
+    machine.set_keys({(2, 3), (5, 6)})
+    machine.ticks_to_stop = 1000
+    machine.run()
+
+    # Row 3 pulled low, the rest high: 0xFF & ~(1 << 3) == 0xF7.
+    assert machine.memory[0x1000] == 0xf7
+
+
 def test_screen_pixel_layout() -> None:
     machine = orion128.Orion128Machine()
     screen = machine.read_screen()

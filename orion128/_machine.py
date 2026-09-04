@@ -46,6 +46,12 @@ IO_SIZE = 0x400
 # byte appear at the data port for the Monitor to read.
 ROMDISK_PORT = 0xf500
 
+# The keyboard 8255 at F400: port A (F400) drives the scan columns active
+# low, port B (F401) reads the sense rows active low. A pressed key is a
+# (column, row) crossing that pulls its row low when its column is scanned.
+KEYBOARD_SCAN = 0xf400
+KEYBOARD_SENSE = 0xf401
+
 
 class Orion128Machine(z80.I8080Machine):
     '''The Orion-128 machine: the i8080 core with the Orion's memory.
@@ -62,6 +68,8 @@ class Orion128Machine(z80.I8080Machine):
         self.__system_ports: dict[int, int] = {}
         self.__romdisk = b''
         self.__romdisk_addr = 0
+        self.__scan = 0xff
+        self.__keys: set[tuple[int, int]] = set()
         if monitor is not None:
             self.load_monitor(monitor)
 
@@ -82,6 +90,20 @@ class Orion128Machine(z80.I8080Machine):
         self.__romdisk_addr = 0
         self.set_memory_block(ROMDISK_PORT, bytes([romdisk[0]]))
 
+    def set_keys(self, keys: set[tuple[int, int]]) -> None:
+        '''Set the pressed keys as (column, row) matrix crossings.'''
+        self.__keys = set(keys)
+        self.__update_keyboard()
+
+    def __update_keyboard(self) -> None:
+        # A pressed key pulls its sense row low while its scan column is
+        # driven low, so gather the rows of all keys on the active columns.
+        sense = 0xff
+        for column, row in self.__keys:
+            if not (self.__scan >> column) & 1:
+                sense &= ~(1 << row) & 0xff
+        self.set_memory_block(KEYBOARD_SENSE, bytes([sense]))
+
     def __on_write(self, addr: int, value: int) -> None:
         # The Monitor ROM and the system latches sit at MONITOR_BASE and
         # above. Capture the latch writes and never touch the ROM.
@@ -89,12 +111,15 @@ class Orion128Machine(z80.I8080Machine):
             self.__system_ports[addr] = value
             return
 
-        # The 8255 region. Only the ROM-disk is live so far: writing its
-        # address ports makes the addressed byte appear at the data port.
-        # The rest stays idle, so the keyboard keeps reading no key.
+        # The 8255 region. Writing the ROM-disk address ports makes the
+        # addressed byte appear at its data port. Writing the keyboard scan
+        # column updates the sense rows for the pressed keys.
         if addr >= IO_BASE:
             if self.__romdisk and ROMDISK_PORT < addr <= ROMDISK_PORT + 2:
                 self.__set_romdisk_address(addr, value)
+            elif addr == KEYBOARD_SCAN:
+                self.__scan = value
+                self.__update_keyboard()
             return
 
         # Ordinary RAM, including the screen.
