@@ -6,8 +6,6 @@
 #
 #   Published under the MIT license.
 
-from ._main import main
 
-__all__ = [
-    'main',
-]
+def main() -> None:
+    '''The orion128 command-line entry point. Does nothing yet.'''

@@ -37,6 +37,9 @@ classifiers = [
 [project.urls]
 Homepage = 'https://github.com/kosarev/orion128/'
 
+[project.scripts]
+orion128 = 'orion128:main'
+
 [tool.setuptools]
 packages = ['orion128']
 
