@@ -7,6 +7,8 @@
 #   Published under the MIT license.
 
 from ._machine import (
+    MONITOR_BASE,
+    MONITOR_SIZE,
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
     VIDEO_BASE,
@@ -16,6 +18,8 @@ from ._machine import (
 from ._main import main
 
 __all__ = [
+    'MONITOR_BASE',
+    'MONITOR_SIZE',
     'SCREEN_HEIGHT',
     'SCREEN_WIDTH',
     'VIDEO_BASE',

@@ -9,6 +9,16 @@
 import orion128
 
 
+def test_load_monitor() -> None:
+    # A synthetic ROM whose first byte is the reset jump, as the real
+    # Monitor's is.
+    monitor = bytes([0xc3, 0x42, 0xf8]) + bytes(orion128.MONITOR_SIZE - 3)
+    machine = orion128.Orion128Machine(monitor)
+    assert machine.pc == orion128.MONITOR_BASE
+    start = orion128.MONITOR_BASE
+    assert bytes(machine.memory[start:start + 3]) == bytes([0xc3, 0x42, 0xf8])
+
+
 def test_screen_pixel_layout() -> None:
     machine = orion128.Orion128Machine()
     screen = machine.read_screen()
