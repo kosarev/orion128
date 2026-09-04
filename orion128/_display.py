@@ -42,7 +42,7 @@ _KEY_MATRIX = {
     sdl2.SDLK_SPACE: (0, 0), sdl2.SDLK_RETURN: (0, 10),
     sdl2.SDLK_LEFT: (5, 0), sdl2.SDLK_RIGHT: (6, 7),
     sdl2.SDLK_UP: (7, 5), sdl2.SDLK_DOWN: (6, 5),
-    sdl2.SDLK_BACKSPACE: (6, 4),
+    sdl2.SDLK_BACKSPACE: (6, 4), sdl2.SDLK_ESCAPE: (1, 10),
     # Shift gives the Orion's shifted characters (and lowercase letters).
     sdl2.SDLK_LSHIFT: (5, 9), sdl2.SDLK_RSHIFT: (5, 9),
 }
