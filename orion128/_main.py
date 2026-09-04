@@ -42,33 +42,47 @@ def _draw_test_pattern(machine: Orion128Machine) -> None:
     machine.set_memory_block(VIDEO_BASE, columns.reshape(-1).tobytes())
 
 
-def _parse_monitor_path(args: list[str]) -> str | None:
-    '''Read the leading '--monitor PATH' option, if any.'''
+def _take_path(args: list[str], option: str) -> str:
+    if not args:
+        sys.exit(f'orion128: {option} needs a path')
+    return args.pop(0)
+
+
+def _parse_args(args: list[str]) -> tuple[str | None, str | None]:
+    '''Read the leading '--monitor PATH' and '--romdisk PATH' options.'''
     monitor = None
+    romdisk = None
     while args and args[0].startswith('--'):
         option = args.pop(0)
         if option == '--monitor':
-            if not args:
-                sys.exit('orion128: --monitor needs a path')
-            monitor = args.pop(0)
+            monitor = _take_path(args, option)
+        elif option == '--romdisk':
+            romdisk = _take_path(args, option)
         else:
             sys.exit(f'orion128: unknown option: {option}')
-    return monitor
+    return monitor, romdisk
+
+
+def _read_file(path: str) -> bytes:
+    with open(path, 'rb') as f:
+        return f.read()
 
 
 def main() -> None:
     '''The orion128 command-line entry point.
 
     With '--monitor PATH' it loads that Monitor ROM and runs the machine,
-    showing the screen until the window is closed. With no ROM it just
+    showing the screen until the window is closed. '--romdisk PATH' attaches
+    a ROM-disk, which the Monitor boots into (ORDOS). With no ROM it just
     shows a test pattern.
     '''
-    monitor = _parse_monitor_path(sys.argv[1:])
+    monitor, romdisk = _parse_args(sys.argv[1:])
 
     machine = Orion128Machine()
     if monitor is not None:
-        with open(monitor, 'rb') as rom:
-            machine.load_monitor(rom.read())
+        machine.load_monitor(_read_file(monitor))
+        if romdisk is not None:
+            machine.load_romdisk(_read_file(romdisk))
     else:
         _draw_test_pattern(machine)
 

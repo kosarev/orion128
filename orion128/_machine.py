@@ -41,6 +41,11 @@ CPU_FREQUENCY = 2_500_000
 IO_BASE = 0xf400
 IO_SIZE = 0x400
 
+# The ROM-disk 8255 lives at F500: F500 reads data, F501 sets the address
+# low byte, F502 the high byte. Writing the address makes the addressed
+# byte appear at the data port for the Monitor to read.
+ROMDISK_PORT = 0xf500
+
 
 class Orion128Machine(z80.I8080Machine):
     '''The Orion-128 machine: the i8080 core with the Orion's memory.
@@ -55,6 +60,8 @@ class Orion128Machine(z80.I8080Machine):
     def __init__(self, monitor: bytes | None = None) -> None:
         super().__init__()
         self.__system_ports: dict[int, int] = {}
+        self.__romdisk = b''
+        self.__romdisk_addr = 0
         if monitor is not None:
             self.load_monitor(monitor)
 
@@ -69,6 +76,12 @@ class Orion128Machine(z80.I8080Machine):
         self.pc = MONITOR_BASE
         self.set_write_callback(self.__on_write)
 
+    def load_romdisk(self, romdisk: bytes) -> None:
+        '''Attach a ROM-disk image, served through the F500 8255.'''
+        self.__romdisk = romdisk
+        self.__romdisk_addr = 0
+        self.set_memory_block(ROMDISK_PORT, bytes([romdisk[0]]))
+
     def __on_write(self, addr: int, value: int) -> None:
         # The Monitor ROM and the system latches sit at MONITOR_BASE and
         # above. Capture the latch writes and never touch the ROM.
@@ -76,13 +89,24 @@ class Orion128Machine(z80.I8080Machine):
             self.__system_ports[addr] = value
             return
 
-        # Leave the 8255 region idle, so the keyboard keeps reading no key
-        # and the ROM-disk keeps reading absent.
+        # The 8255 region. Only the ROM-disk is live so far: writing its
+        # address ports makes the addressed byte appear at the data port.
+        # The rest stays idle, so the keyboard keeps reading no key.
         if addr >= IO_BASE:
+            if self.__romdisk and ROMDISK_PORT < addr <= ROMDISK_PORT + 2:
+                self.__set_romdisk_address(addr, value)
             return
 
         # Ordinary RAM, including the screen.
         self.set_memory_block(addr, bytes([value]))
+
+    def __set_romdisk_address(self, addr: int, value: int) -> None:
+        if addr == ROMDISK_PORT + 1:
+            self.__romdisk_addr = (self.__romdisk_addr & 0xff00) | value
+        else:
+            self.__romdisk_addr = (self.__romdisk_addr & 0x00ff) | (value << 8)
+        byte = self.__romdisk[self.__romdisk_addr % len(self.__romdisk)]
+        self.set_memory_block(ROMDISK_PORT, bytes([byte]))
 
     def read_screen(self) -> npt.NDArray[np.uint8]:
         '''Return the screen as a SCREEN_HEIGHT by SCREEN_WIDTH array of
