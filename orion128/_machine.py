@@ -31,25 +31,55 @@ VIDEO_SIZE = (SCREEN_WIDTH // 8) * SCREEN_HEIGHT
 MONITOR_BASE = 0xf800
 MONITOR_SIZE = 0x800
 
+# The Orion reaches its hardware through memory, not through i8080 ports.
+# The 8255 chips (keyboard, ROM-disk, user ports) occupy F400-F7FF, and the
+# system latches (colour, RAM page, screen page) share F800-FFFF with the
+# Monitor ROM: reads there return the ROM, writes set the latches.
+IO_BASE = 0xf400
+IO_SIZE = 0x400
+
 
 class Orion128Machine(z80.I8080Machine):
     '''The Orion-128 machine: the i8080 core with the Orion's memory.
 
-    Only the memory, the screen layout and loading the Monitor ROM are
-    modelled so far. The memory-mapped ports, banking, the keyboard and the
-    disk controller come later.
+    The processor reads memory straight from the core, which is fast. Only
+    writes need watching, so a single write handler forms the whole bus: it
+    protects the Monitor ROM, captures the system latches, and leaves the
+    8255 region idle. Banking, the keyboard and the disk controller are
+    still to come.
     '''
 
     def __init__(self, monitor: bytes | None = None) -> None:
         super().__init__()
+        self.__system_ports: dict[int, int] = {}
         if monitor is not None:
             self.load_monitor(monitor)
 
     def load_monitor(self, monitor: bytes) -> None:
-        '''Load the 2K Monitor ROM and start the processor at its entry.'''
+        '''Load the 2K Monitor ROM, set up the bus and start at the entry.'''
         assert len(monitor) == MONITOR_SIZE
         self.set_memory_block(MONITOR_BASE, monitor)
+
+        # Idle I/O reads as no key pressed and no ROM-disk present.
+        self.set_memory_block(IO_BASE, b'\xff' * IO_SIZE)
+
         self.pc = MONITOR_BASE
+        self.set_write_callback(self.__on_write)
+
+    def __on_write(self, addr: int, value: int) -> None:
+        # The Monitor ROM and the system latches sit at MONITOR_BASE and
+        # above. Capture the latch writes and never touch the ROM.
+        if addr >= MONITOR_BASE:
+            self.__system_ports[addr] = value
+            return
+
+        # Leave the 8255 region idle, so the keyboard keeps reading no key
+        # and the ROM-disk keeps reading absent.
+        if addr >= IO_BASE:
+            return
+
+        # Ordinary RAM, including the screen.
+        self.set_memory_block(addr, bytes([value]))
 
     def read_screen(self) -> npt.NDArray[np.uint8]:
         '''Return the screen as a SCREEN_HEIGHT by SCREEN_WIDTH array of

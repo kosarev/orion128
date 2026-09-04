@@ -19,6 +19,27 @@ def test_load_monitor() -> None:
     assert bytes(machine.memory[start:start + 3]) == bytes([0xc3, 0x42, 0xf8])
 
 
+def test_io_bus() -> None:
+    # A monitor that stores to a system latch (F900) and to RAM (0x1234),
+    # then halts.
+    code = bytes([
+        0x3e, 0x99,        # MVI A, 0x99
+        0x32, 0x00, 0xf9,  # STA 0xF900   -- a latch; the ROM must survive
+        0x32, 0x34, 0x12,  # STA 0x1234   -- ordinary RAM
+        0x76,              # HLT
+    ])
+    monitor = code + bytes(orion128.MONITOR_SIZE - len(code))
+    machine = orion128.Orion128Machine(monitor)
+    machine.ticks_to_stop = 1000
+    machine.run()
+
+    # The write to F900 was captured as a latch, not stored, so the ROM
+    # byte there is unchanged.
+    assert machine.memory[0xf900] == monitor[0xf900 - orion128.MONITOR_BASE]
+    # The write to RAM went through.
+    assert machine.memory[0x1234] == 0x99
+
+
 def test_screen_pixel_layout() -> None:
     machine = orion128.Orion128Machine()
     screen = machine.read_screen()
