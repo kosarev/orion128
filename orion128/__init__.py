@@ -6,8 +6,20 @@
 #
 #   Published under the MIT license.
 
+from ._machine import (
+    SCREEN_HEIGHT,
+    SCREEN_WIDTH,
+    VIDEO_BASE,
+    VIDEO_SIZE,
+    Orion128Machine,
+)
 from ._main import main
 
 __all__ = [
+    'SCREEN_HEIGHT',
+    'SCREEN_WIDTH',
+    'VIDEO_BASE',
+    'VIDEO_SIZE',
+    'Orion128Machine',
     'main',
 ]
