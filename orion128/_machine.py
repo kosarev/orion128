@@ -47,10 +47,12 @@ IO_SIZE = 0x400
 ROMDISK_PORT = 0xf500
 
 # The keyboard 8255 at F400: port A (F400) drives the scan columns active
-# low, port B (F401) reads the sense rows active low. A pressed key is a
+# low, and the sense rows are read active low from port B (F401) for rows
+# 0-7 and the top half of port C (F402) for rows 8-11. A pressed key is a
 # (column, row) crossing that pulls its row low when its column is scanned.
 KEYBOARD_SCAN = 0xf400
 KEYBOARD_SENSE = 0xf401
+KEYBOARD_SENSE_C = 0xf402
 
 
 class Orion128Machine(z80.I8080Machine):
@@ -97,12 +99,18 @@ class Orion128Machine(z80.I8080Machine):
 
     def __update_keyboard(self) -> None:
         # A pressed key pulls its sense row low while its scan column is
-        # driven low, so gather the rows of all keys on the active columns.
-        sense = 0xff
+        # driven low. Rows 0-7 report on port B, rows 8-11 on the top of
+        # port C.
+        sense_b = 0xff
+        sense_c = 0xff
         for column, row in self.__keys:
             if not (self.__scan >> column) & 1:
-                sense &= ~(1 << row) & 0xff
-        self.set_memory_block(KEYBOARD_SENSE, bytes([sense]))
+                if row < 8:
+                    sense_b &= ~(1 << row) & 0xff
+                else:
+                    sense_c &= ~(1 << (row - 8 + 4)) & 0xff
+        self.set_memory_block(KEYBOARD_SENSE, bytes([sense_b]))
+        self.set_memory_block(KEYBOARD_SENSE_C, bytes([sense_c]))
 
     def __on_write(self, addr: int, value: int) -> None:
         # The Monitor ROM and the system latches sit at MONITOR_BASE and

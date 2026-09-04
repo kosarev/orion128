@@ -16,25 +16,25 @@ import sdl2
 from ._machine import SCREEN_HEIGHT, SCREEN_WIDTH
 
 # The MS7007 keyboard: host key to (column, row) matrix crossing. The
-# columns are the port A scan lines, the rows the port B sense lines. The
-# crossings are taken from the MS7007 matrix, laid over a host keyboard by
-# position, so the host letter and digit keys reach the same Orion keys.
+# columns are the port A scan lines, the rows the port B sense lines (0-7)
+# and the top of port C (8-11). The crossings were read off the Monitor
+# itself, by pressing each one and seeing which character it decodes, so
+# the host letter and digit keys reach the Orion keys of the same name.
 _KEY_MATRIX = {
-    sdl2.SDLK_a: (0, 1), sdl2.SDLK_b: (4, 7), sdl2.SDLK_c: (3, 0),
-    sdl2.SDLK_d: (2, 1), sdl2.SDLK_e: (2, 2), sdl2.SDLK_f: (3, 1),
-    sdl2.SDLK_g: (4, 1), sdl2.SDLK_h: (4, 6), sdl2.SDLK_i: (2, 5),
-    sdl2.SDLK_j: (3, 6), sdl2.SDLK_k: (2, 6), sdl2.SDLK_l: (1, 6),
-    sdl2.SDLK_m: (2, 7), sdl2.SDLK_n: (3, 7), sdl2.SDLK_o: (1, 5),
-    sdl2.SDLK_p: (0, 5), sdl2.SDLK_q: (0, 2), sdl2.SDLK_r: (3, 2),
-    sdl2.SDLK_s: (1, 1), sdl2.SDLK_t: (4, 2), sdl2.SDLK_u: (3, 5),
-    sdl2.SDLK_v: (4, 0), sdl2.SDLK_w: (1, 2), sdl2.SDLK_x: (2, 0),
-    sdl2.SDLK_y: (4, 5), sdl2.SDLK_z: (1, 0),
-    sdl2.SDLK_0: (0, 4), sdl2.SDLK_1: (0, 3), sdl2.SDLK_2: (1, 3),
-    sdl2.SDLK_3: (2, 3), sdl2.SDLK_4: (3, 3), sdl2.SDLK_5: (4, 3),
-    sdl2.SDLK_6: (4, 4), sdl2.SDLK_7: (3, 4), sdl2.SDLK_8: (2, 4),
-    sdl2.SDLK_9: (1, 4),
-    sdl2.SDLK_SPACE: (0, 7), sdl2.SDLK_RETURN: (0, 6),
-    sdl2.SDLK_LSHIFT: (0, 0), sdl2.SDLK_RSHIFT: (1, 7),
+    sdl2.SDLK_a: (4, 4), sdl2.SDLK_b: (4, 0), sdl2.SDLK_c: (3, 2),
+    sdl2.SDLK_d: (3, 1), sdl2.SDLK_e: (2, 7), sdl2.SDLK_f: (3, 11),
+    sdl2.SDLK_g: (3, 6), sdl2.SDLK_h: (7, 0), sdl2.SDLK_i: (4, 7),
+    sdl2.SDLK_j: (2, 11), sdl2.SDLK_k: (3, 4), sdl2.SDLK_l: (3, 0),
+    sdl2.SDLK_m: (5, 4), sdl2.SDLK_n: (3, 5), sdl2.SDLK_o: (4, 6),
+    sdl2.SDLK_p: (3, 7), sdl2.SDLK_q: (4, 11), sdl2.SDLK_r: (4, 5),
+    sdl2.SDLK_s: (5, 3), sdl2.SDLK_t: (5, 5), sdl2.SDLK_u: (3, 3),
+    sdl2.SDLK_v: (6, 1), sdl2.SDLK_w: (4, 3), sdl2.SDLK_x: (5, 6),
+    sdl2.SDLK_y: (4, 2), sdl2.SDLK_z: (7, 1),
+    sdl2.SDLK_0: (6, 10), sdl2.SDLK_1: (6, 11), sdl2.SDLK_2: (7, 11),
+    sdl2.SDLK_3: (0, 11), sdl2.SDLK_4: (6, 2), sdl2.SDLK_5: (7, 2),
+    sdl2.SDLK_6: (0, 2), sdl2.SDLK_7: (6, 9), sdl2.SDLK_8: (7, 9),
+    sdl2.SDLK_9: (0, 9),
+    sdl2.SDLK_SPACE: (0, 0), sdl2.SDLK_RETURN: (0, 10),
 }
 
 
