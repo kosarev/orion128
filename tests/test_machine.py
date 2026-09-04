@@ -109,6 +109,15 @@ def test_keyboard() -> None:
     assert machine.memory[0x1000] == 0xf7
 
 
+def test_reset() -> None:
+    machine = orion128.Orion128Machine()
+    machine.set_memory_block(0x1000, bytes([0x5a]))
+    machine.reset()
+    # The processor is back at the Monitor, and RAM is kept.
+    assert machine.pc == orion128.MONITOR_BASE
+    assert machine.memory[0x1000] == 0x5a
+
+
 def test_ram_disk() -> None:
     # Preload a record, then read the RAM-disk page's first byte back to
     # common memory.

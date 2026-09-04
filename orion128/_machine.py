@@ -136,6 +136,17 @@ class Orion128Machine(z80.I8080Machine):
         # Port F9 selects the memory page.
         self.set_output_callback(self.__on_output)
 
+    def reset(self) -> None:
+        '''Reset the processor to the Monitor, as the RESET key does.
+
+        RAM, including the RAM-disks, is kept, so the Monitor re-boots ORDOS
+        with everything still in place. The Monitor expects page 0 and a
+        cleared colour mode.
+        '''
+        self.__select_page(0)
+        self.__colour_control = 0
+        self.pc = MONITOR_BASE
+
     def load_romdisk(self, romdisk: bytes) -> None:
         '''Attach a ROM-disk image, served through the F500 8255.'''
         self.__romdisk = romdisk

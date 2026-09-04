@@ -47,6 +47,10 @@ _KEY_MATRIX = {
     sdl2.SDLK_LSHIFT: (5, 9), sdl2.SDLK_RSHIFT: (5, 9),
 }
 
+# The RESET key is a hardware button, not a matrix key, so it has its own
+# host key.
+_RESET_KEY = sdl2.SDLK_F12
+
 
 class Display:
     '''A window showing the Orion screen, built on SDL.
@@ -82,6 +86,7 @@ class Display:
             sdl2.SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT)
 
         self.__quit = False
+        self.__reset_pressed = False
         self.__keys_down: set[int] = set()
 
     def update(self, frame: npt.NDArray[np.uint8]) -> None:
@@ -100,7 +105,11 @@ class Display:
             if event.type == sdl2.SDL_QUIT:
                 self.__quit = True
             elif event.type == sdl2.SDL_KEYDOWN:
-                self.__keys_down.add(int(event.key.keysym.sym))
+                key = int(event.key.keysym.sym)
+                if key == _RESET_KEY:
+                    self.__reset_pressed = True
+                else:
+                    self.__keys_down.add(key)
             elif event.type == sdl2.SDL_KEYUP:
                 self.__keys_down.discard(int(event.key.keysym.sym))
         return self.__quit
@@ -109,6 +118,12 @@ class Display:
         '''The pressed keys as Orion (column, row) matrix crossings.'''
         return {_KEY_MATRIX[key]
                 for key in self.__keys_down if key in _KEY_MATRIX}
+
+    def take_reset(self) -> bool:
+        '''Report whether the RESET key was pressed, and clear it.'''
+        pressed = self.__reset_pressed
+        self.__reset_pressed = False
+        return pressed
 
     def close(self) -> None:
         sdl2.SDL_DestroyTexture(self.__texture)
