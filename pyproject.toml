@@ -1,0 +1,57 @@
+[build-system]
+requires = ['setuptools>=61.0', 'wheel']
+build-backend = 'setuptools.build_meta'
+
+[project]
+name = 'orion128'
+version = '0.1.0'
+description = 'Orion-128 home computer emulator'
+readme = 'README.md'
+license = {text = 'MIT'}
+authors = [
+  {name = 'Ivan Kosarev', email = 'mail@ivankosarev.com'}
+]
+requires-python = '>=3.10'
+dependencies = [
+  'z80>=1.1',
+  'pysdl2',
+  'numpy',
+]
+classifiers = [
+  'Development Status :: 2 - Pre-Alpha',
+  'Environment :: X11 Applications',
+  'Intended Audience :: Developers',
+  'Intended Audience :: End Users/Desktop',
+  'Operating System :: OS Independent',
+  'Programming Language :: Python :: 3',
+  'Programming Language :: Python :: 3.10',
+  'Programming Language :: Python :: 3.11',
+  'Programming Language :: Python :: 3.12',
+  'Programming Language :: Python :: 3.13',
+  'Programming Language :: Python :: Implementation :: CPython',
+  'Topic :: Games/Entertainment',
+  'Topic :: System :: Emulators',
+  'Typing :: Typed',
+]
+
+[project.urls]
+Homepage = 'https://github.com/kosarev/orion128/'
+
+[tool.setuptools]
+packages = ['orion128']
+
+[tool.setuptools.package-data]
+# py.typed is the PEP 561 marker telling type checkers the package
+# carries type information.
+orion128 = ['py.typed']
+
+[tool.ruff]
+# Anchors the ruff project root, so the orion128 package is recognised as
+# first-party regardless of the directory ruff is invoked from.
+
+# Match pycodestyle, so ruff does not keep imports on lines it rejects.
+line-length = 79
+
+[tool.ruff.lint]
+# Reject needlessly quoted type annotations.
+extend-select = ['UP037']
