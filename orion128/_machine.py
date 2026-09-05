@@ -6,6 +6,8 @@
 #
 #   Published under the MIT license.
 
+import typing
+
 import numpy as np
 import numpy.typing as npt
 import z80
@@ -151,18 +153,29 @@ def _to_record(data: bytes) -> bytes:
     return bytes(record)
 
 
-class Orion128Machine(z80.I8080Machine):
-    '''The Orion-128 machine: the i8080 core with the Orion's memory.
+# The mixin expects to be combined with a z80 machine class. This declares
+# that to the type checker without imposing a runtime base.
+if typing.TYPE_CHECKING:
+    _MachineBase = z80.I8080Machine
+else:
+    _MachineBase = object
+
+
+class Orion128MachineMixin(_MachineBase):
+    '''The Orion-128 hardware: the memory bus, the keyboard, the ROM-disk,
+    the floppy controller, the video and the system latches.
+
+    Combined with a z80 CPU core to form a machine: Orion128Machine over the
+    i8080, Orion128Z80Machine over the Z80 for software that uses Z80
+    instructions. The two share this hardware; only the core differs.
 
     The processor reads memory straight from the core, which is fast. Only
     writes need watching, so a single write handler forms the whole bus: it
-    protects the Monitor ROM, captures the system latches, and leaves the
-    8255 region idle. Banking, the keyboard and the disk controller are
-    still to come.
+    protects the Monitor ROM, captures the system latches, and serves the
+    8255 region.
     '''
 
     def __init__(self, monitor: bytes | None = None) -> None:
-        super().__init__()
         self.__system_ports: dict[int, int] = {}
         self.__romdisk = b''
         self.__romdisk_addr = 0
@@ -402,3 +415,20 @@ class Orion128Machine(z80.I8080Machine):
         if mode == MODE_MONOCHROME:
             frame[self.read_screen() != 0] = _GREEN
         return frame
+
+
+class Orion128Machine(Orion128MachineMixin, z80.I8080Machine):
+    '''The Orion-128 on its native i8080 core.'''
+
+    def __init__(self, monitor: bytes | None = None) -> None:
+        z80.I8080Machine.__init__(self)
+        Orion128MachineMixin.__init__(self, monitor)
+
+
+# The same hardware on a Z80 core, for software that uses Z80 instructions.
+class Orion128Z80Machine(Orion128MachineMixin, z80.Z80Machine):
+    '''The Orion-128 on a Z80 core, for Z80 software such as ORION-DOS.'''
+
+    def __init__(self, monitor: bytes | None = None) -> None:
+        z80.Z80Machine.__init__(self)
+        Orion128MachineMixin.__init__(self, monitor)

@@ -13,7 +13,7 @@ from pathlib import Path
 from ._display import Display
 from ._floppy import is_disk_image
 from ._keyboard import MS7007, RK86
-from ._machine import CPU_FREQUENCY, Orion128Machine
+from ._machine import CPU_FREQUENCY, Orion128Machine, Orion128Z80Machine
 
 # The window is redrawn this many times a second, and the processor runs a
 # matching slice of ticks between redraws, so it runs at about real speed.
@@ -30,23 +30,28 @@ def _take_path(args: list[str], option: str) -> str:
 
 
 def _parse_args(
-        args: list[str]) -> tuple[bool, Path | None, Path | None, list[Path]]:
+        args: list[str]
+        ) -> tuple[bool, bool, Path | None, Path | None, list[Path]]:
     '''Read the leading options and the file arguments.
 
     The options are '--rk86' (the RK-86 keyboard machine, with its Monitor
-    and keyboard layout), '--monitor PATH' and '--romdisk PATH' (each
+    and keyboard layout), '--z80' (run on the Z80 core, for software that
+    uses Z80 instructions), and '--monitor PATH' and '--romdisk PATH' (each
     replacing the bundled default). The remaining arguments are files, each
     sorted by name and size: a floppy image goes in the drive, an ORDOS
     file (.ORD or .BRU) is preloaded onto the RAM-disk (drive B:). A missing
     monitor or ROM-disk is returned as None for the caller to default.
     '''
     rk86 = False
+    z80 = False
     monitor = None
     romdisk = None
     while args and args[0].startswith('--'):
         option = args.pop(0)
         if option == '--rk86':
             rk86 = True
+        elif option == '--z80':
+            z80 = True
         elif option == '--monitor':
             monitor = Path(_take_path(args, option))
         elif option == '--romdisk':
@@ -54,7 +59,7 @@ def _parse_args(
         else:
             sys.exit(f'orion128: unknown option: {option}')
     files = [Path(arg) for arg in args]
-    return rk86, monitor, romdisk, files
+    return rk86, z80, monitor, romdisk, files
 
 
 def main() -> None:
@@ -63,12 +68,13 @@ def main() -> None:
     It runs the machine and shows its screen until the window is closed. By
     default it boots the bundled MS7007 Monitor and ORDOS ROM-disk. '--rk86'
     selects the RK-86 keyboard machine instead, with its own Monitor and
-    keyboard layout. '--monitor PATH' and '--romdisk PATH' replace the
+    keyboard layout. '--z80' runs on the Z80 core, for software that uses
+    Z80 instructions. '--monitor PATH' and '--romdisk PATH' replace the
     bundled ROMs. Any further arguments are files: a floppy image goes in
     the drive, an ORDOS file (.ORD or .BRU) is preloaded onto the RAM-disk
     (drive B:).
     '''
-    rk86, monitor, romdisk, files = _parse_args(sys.argv[1:])
+    rk86, z80, monitor, romdisk, files = _parse_args(sys.argv[1:])
 
     if monitor is None:
         monitor = _PACKAGE / ('m2rk86.rom' if rk86 else 'ms7007.rom')
@@ -91,7 +97,7 @@ def main() -> None:
     if len(disks) > 4:
         sys.exit('orion128: at most four floppy drives are supported')
 
-    machine = Orion128Machine()
+    machine = Orion128Z80Machine() if z80 else Orion128Machine()
     machine.load_monitor(monitor.read_bytes())
     machine.load_romdisk(romdisk.read_bytes())
     machine.mount_disks([path.read_bytes() for path in disks])

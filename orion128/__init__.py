@@ -20,6 +20,8 @@ from ._machine import (
     VIDEO_BASE,
     VIDEO_SIZE,
     Orion128Machine,
+    Orion128MachineMixin,
+    Orion128Z80Machine,
 )
 from ._main import main
 
@@ -37,5 +39,7 @@ __all__ = [
     'VIDEO_BASE',
     'VIDEO_SIZE',
     'Orion128Machine',
+    'Orion128MachineMixin',
+    'Orion128Z80Machine',
     'main',
 ]

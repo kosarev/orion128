@@ -25,7 +25,8 @@ orion128
 ```
 
 `--rk86` selects the RK-86 keyboard machine, with its own Monitor and
-keyboard layout, for software written for that keyboard. `--monitor PATH`
+keyboard layout, for software written for that keyboard. `--z80` runs on
+the Z80 core, for software that uses Z80 instructions. `--monitor PATH`
 and `--romdisk PATH` replace the bundled ROMs.
 
 Each extra argument is a file the emulator loads. An ORDOS program (`.ORD`
