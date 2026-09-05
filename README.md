@@ -1,7 +1,7 @@
 # orion128
 
-An emulator of the Orion-128, a Soviet home computer built around the
-KR580VM80A processor (an i8080 clone).
+An emulator of the Orion-128, a home computer built around the KR580VM80A
+processor (an i8080 clone).
 
 orion128 emulates the hardware — memory-mapped video, the keyboard, ports and
 the disk controller — and runs the real ROM and software on top of it. It is
