@@ -10,7 +10,8 @@ import sys
 import time
 from pathlib import Path
 
-from ._display import MS7007_KEYS, RK86_KEYS, Display
+from ._display import Display
+from ._keyboard import MS7007_KEYS, RK86_KEYS
 from ._machine import CPU_FREQUENCY, Orion128Machine
 
 # The window is redrawn this many times a second, and the processor runs a
