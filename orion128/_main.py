@@ -78,8 +78,8 @@ def main() -> None:
     With '--monitor PATH' it loads that Monitor ROM and runs the machine,
     showing the screen until the window is closed. '--romdisk PATH' attaches
     a ROM-disk, which the Monitor boots into (ORDOS). '--ord PATH' preloads
-    an ORDOS file onto the RAM-disk (drive B:); repeat it for several files.
-    With no ROM it just shows a test pattern.
+    an ORDOS file (.ORD or .BRU) onto the RAM-disk (drive B:); repeat it for
+    several files. With no ROM it just shows a test pattern.
     '''
     monitor, romdisk, ords = _parse_args(sys.argv[1:])
 

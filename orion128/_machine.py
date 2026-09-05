@@ -94,6 +94,22 @@ def _build_palette() -> npt.NDArray[np.uint8]:
 _PALETTE = _build_palette()
 
 
+def _to_record(data: bytes) -> bytes:
+    '''Normalise a stored ORDOS file to an on-disk record.
+
+    An on-disk record holds the data length in its size field and no
+    padding. A .ORD file puts the whole file length there (16 more than the
+    data); a .BRU file puts the data length but pads the data to a block
+    boundary. Tell them apart by whether the size field plus the 16-byte
+    header still fits inside the file.
+    '''
+    size = data[10] | (data[11] << 8)
+    data_size = size if 16 + size <= len(data) else len(data) - 16
+    record = bytearray(data[:16 + data_size])
+    record[10:12] = data_size.to_bytes(2, 'little')
+    return bytes(record)
+
+
 class Orion128Machine(z80.I8080Machine):
     '''The Orion-128 machine: the i8080 core with the Orion's memory.
 
@@ -156,23 +172,21 @@ class Orion128Machine(z80.I8080Machine):
     def load_ram_disk(self, files: list[bytes]) -> None:
         '''Fill the RAM-disk (drive B:, page 1) with ORDOS file records.
 
-        Each ORDOS file is a complete record: an 8-byte name, a 2-byte load
-        address, a 2-byte size, four more header bytes, then the data. The
-        records lie end to end and an FF byte closes the directory. ORDOS
-        keeps such a preloaded disk instead of clearing it at start-up.
+        Each ORDOS file is a record: an 8-byte name, a 2-byte load address,
+        a 2-byte size, four more header bytes, then the data. The records
+        lie end to end and an FF byte closes the directory. ORDOS keeps such
+        a preloaded disk instead of clearing it at start-up.
 
-        On disk the size field is the data length, and ORDOS steps to the
-        next record by it. A stored .ORD file instead holds the whole file
-        length there, 16 too many, so rewrite it to the data length.
+        The files may be in either stored form: a .ORD holds the whole file
+        length in the size field, a .BRU holds the data length and pads the
+        data out to a block boundary. _to_record normalises both.
         '''
         image = bytearray(PAGED_SIZE)
         offset = 0
-        for record in files:
-            entry = bytearray(record)
-            data_size = len(entry) - 16
-            entry[10:12] = data_size.to_bytes(2, 'little')
-            image[offset:offset + len(entry)] = entry
-            offset += len(entry)
+        for data in files:
+            record = _to_record(data)
+            image[offset:offset + len(record)] = record
+            offset += len(record)
         image[offset] = 0xff
         self.__page_images[RAM_DISK_PAGE][:] = image
 

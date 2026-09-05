@@ -109,6 +109,26 @@ def test_keyboard() -> None:
     assert machine.memory[0x1000] == 0xf7
 
 
+def test_ordos_record_formats() -> None:
+    from orion128._machine import _to_record
+    header = b'FILE    ' + (0x100).to_bytes(2, 'little')
+
+    # A .ORD file: the size field is the whole file length.
+    ord_file = header + (24).to_bytes(2, 'little') + bytes(4) + b'12345678'
+    record = _to_record(ord_file)
+    assert len(record) == 24
+    assert (record[10] | (record[11] << 8)) == 8
+    assert record[16:] == b'12345678'
+
+    # A .BRU file: the size field is the data length, with block padding.
+    bru_file = (header + (8).to_bytes(2, 'little') + bytes(4)
+                + b'12345678' + bytes(40))
+    record = _to_record(bru_file)
+    assert len(record) == 24
+    assert (record[10] | (record[11] << 8)) == 8
+    assert record[16:] == b'12345678'
+
+
 def test_reset() -> None:
     machine = orion128.Orion128Machine()
     machine.set_memory_block(0x1000, bytes([0x5a]))
