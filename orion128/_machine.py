@@ -185,6 +185,11 @@ class Orion128Machine(z80.I8080Machine):
         offset = 0
         for data in files:
             record = _to_record(data)
+            # Leave room for the record and the FF terminator after it.
+            if offset + len(record) + 1 > PAGED_SIZE:
+                raise ValueError(
+                    f'the RAM-disk (drive B:) holds {PAGED_SIZE} bytes; '
+                    f'these files do not fit')
             image[offset:offset + len(record)] = record
             offset += len(record)
         image[offset] = 0xff
