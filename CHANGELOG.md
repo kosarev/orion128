@@ -1,6 +1,11 @@
 # Changelog
 
 
+## 0.1.0b3
+
+- Show the README screenshot on PyPI by referencing it with an absolute URL.
+
+
 ## 0.1.0b2
 
 - Floppy disk controller (the KR1818VG93): reads and writes disk images, up to four drives at once. The ORDOS file manager copies files to and from disks, and CP/M boots and runs from a system disk. The bundled ROM-disk now carries the LDOS loader, so CP/M boots with no extra ROMs. Disk changes are kept in memory, so the image files are left as they are.

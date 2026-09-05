@@ -15,7 +15,7 @@ and aims to stay in pure Python. The display is built on PySDL2 and numpy.
 
 Norton Commander (NC.COM) running under CP/M, booted from a disk image:
 
-![NC.COM running under CP/M](nc.png)
+![NC.COM running under CP/M](https://raw.githubusercontent.com/kosarev/orion128/main/nc.png)
 
 It ships with the MS7007 Monitor and an ORDOS 4.03 ROM-disk, so it boots a
 working system out of the box:
