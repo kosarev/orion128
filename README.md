@@ -31,6 +31,11 @@ orion128 PENX4$.ORD
 
 <kbd>F12</kbd> is the RESET button. <kbd>F10</kbd> closes the emulator.
 
+Each PC key is mapped to the Orion key that gives the same character, so
+`:`, `;` and `#` come out as expected, even though the Orion's own keyboard
+is laid out quite differently. Old games that scan the keyboard ports
+directly, like Manic Miner, keep working too.
+
 The bundled ROMs are the copyright of their original authors and are not
 covered by this package's MIT licence; see `orion128/ROMS.txt`.
 
