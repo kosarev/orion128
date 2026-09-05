@@ -303,4 +303,5 @@ class Orion128Machine(z80.I8080Machine):
         foreground = per_pixel & 0x0f
         background = per_pixel >> 4
         index = np.where(pixels != 0, foreground, background)
-        return _PALETTE[index]
+        coloured: npt.NDArray[np.uint8] = _PALETTE[index]
+        return coloured
