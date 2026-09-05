@@ -51,6 +51,9 @@ _KEY_MATRIX = {
 # host key.
 _RESET_KEY = sdl2.SDLK_F12
 
+# F10 closes the emulator, as an alternative to closing the window.
+_QUIT_KEY = sdl2.SDLK_F10
+
 
 class Display:
     '''A window showing the Orion screen, built on SDL.
@@ -106,7 +109,9 @@ class Display:
                 self.__quit = True
             elif event.type == sdl2.SDL_KEYDOWN:
                 key = int(event.key.keysym.sym)
-                if key == _RESET_KEY:
+                if key == _QUIT_KEY:
+                    self.__quit = True
+                elif key == _RESET_KEY:
                     self.__reset_pressed = True
                 else:
                     self.__keys_down.add(key)
