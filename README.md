@@ -22,12 +22,21 @@ orion128
 
 `--rk86` selects the RK-86 keyboard machine, with its own Monitor and
 keyboard layout, for software written for that keyboard. `--monitor PATH`
-and `--romdisk PATH` replace the bundled ROMs. Any further arguments are
-ORDOS files (`.ORD` or `.BRU`) preloaded onto the RAM-disk (drive B:):
+and `--romdisk PATH` replace the bundled ROMs.
+
+Each extra argument is a file the emulator loads. An ORDOS program (`.ORD`
+or `.BRU`) is placed on the RAM-disk (drive B:). A disk image is put in a
+floppy drive; give several to fill the drives in turn:
 
 ```shell
 orion128 PENX4$.ORD
+orion128 system.img data.img
 ```
+
+With a disk in the drive the Orion's own disk software runs: the ORDOS file
+manager copies files to and from disks, and CP/M boots from a system disk.
+Changes to a disk are kept in memory, so your image files are left as they
+are.
 
 <kbd>F12</kbd> is the RESET button. <kbd>F10</kbd> closes the emulator.
 
