@@ -81,13 +81,20 @@ PAGED_SIZE = 0xf000
 # A preloaded RAM-disk goes to page 1, drive B:.
 RAM_DISK_PAGE = 1
 
-# Colour control at F800 (or port F8). Bit D2 turns colour on; without it
-# the screen is monochrome. In 16-colour mode a colour byte at the same
-# address in page 1 holds the background colour in its top nibble and the
-# foreground in its bottom nibble, and the pixel bit chooses between them.
+# Colour control at F800 (or port F8). Bits D2 and D1 pick the mode: 0
+# monochrome, 2 blank, 4 four-colour, 6 sixteen-colour (odd values are the
+# same mode with bit D0 selecting the second palette). In 16-colour mode a
+# colour byte at the same address in page 1 holds the background colour in
+# its top nibble and the foreground in its bottom nibble, and the pixel bit
+# chooses between them.
 COLOUR_CONTROL = 0xf800
 COLOUR_CONTROL_PORT = 0xf8
-COLOUR_ON = 0x04
+MODE_MASK = 0x06
+MODE_MONOCHROME = 0x00
+MODE_BLANK = 0x02
+MODE_4_COLOUR = 0x04
+MODE_16_COLOUR = 0x06
+PALETTE_BIT = 0x01
 
 # Screen switching at FA00 (or port FA). The low two bits pick one of four
 # screen areas for the video to show, each 12K in the current page. Screen
@@ -115,6 +122,17 @@ def _build_palette() -> npt.NDArray[np.uint8]:
 
 
 _PALETTE = _build_palette()
+
+# The 4-colour mode is planar: each pixel takes one bit from page 0 and one
+# from page 1 at the same address, giving a two-bit colour. Page 0 is the
+# high bit, so the index runs black, red, green, blue. The second palette
+# (selected by bit D0 of the colour control) shows white in place of black.
+_COLOUR4_PALETTES = np.array(
+    [[(0x00, 0x00, 0x00), (0xff, 0x00, 0x00),
+      (0x00, 0xff, 0x00), (0x00, 0x00, 0xff)],
+     [(0xff, 0xff, 0xff), (0xff, 0x00, 0x00),
+      (0x00, 0xff, 0x00), (0x00, 0x00, 0xff)]],
+    dtype=np.uint8)
 
 
 def _to_record(data: bytes) -> bytes:
@@ -330,12 +348,12 @@ class Orion128Machine(z80.I8080Machine):
             return self.memory
         return self.__page_images[page]
 
-    def read_screen(self) -> npt.NDArray[np.uint8]:
-        '''Return the screen as a SCREEN_HEIGHT by SCREEN_WIDTH array of
-        pixels, each 0 or 1.'''
+    def __unpack_plane(self, page: int) -> npt.NDArray[np.uint8]:
+        '''Return one bit-plane of the shown screen as a SCREEN_HEIGHT by
+        SCREEN_WIDTH array of pixels, each 0 or 1.'''
         base = _SCREEN_BASES[self.__screen_select]
         video = np.frombuffer(
-            self.__page_memory(0), dtype=np.uint8, count=VIDEO_SIZE,
+            self.__page_memory(page), dtype=np.uint8, count=VIDEO_SIZE,
             offset=base)
 
         # Bytes go down a column, so the buffer is columns of pixels; put
@@ -343,28 +361,44 @@ class Orion128Machine(z80.I8080Machine):
         columns = video.reshape(SCREEN_WIDTH // 8, SCREEN_HEIGHT)
         return np.unpackbits(columns.T, axis=1)
 
+    def read_screen(self) -> npt.NDArray[np.uint8]:
+        '''Return the page 0 bit-plane of the shown screen as a
+        SCREEN_HEIGHT by SCREEN_WIDTH array of pixels, each 0 or 1.'''
+        return self.__unpack_plane(0)
+
     def render(self) -> npt.NDArray[np.uint8]:
         '''Return the screen as a SCREEN_HEIGHT by SCREEN_WIDTH RGB frame,
         in the current colour mode.'''
-        pixels = self.read_screen()
+        mode = self.__colour_control & MODE_MASK
 
-        # Monochrome until a program turns colour on.
-        if not self.__colour_control & COLOUR_ON:
-            frame = np.zeros((SCREEN_HEIGHT, SCREEN_WIDTH, 3), dtype=np.uint8)
-            frame[pixels != 0] = _GREEN
-            return frame
+        # 4-colour: combine the page 0 and page 1 bit-planes into a two-bit
+        # colour, page 0 the high bit, and look it up in the chosen palette.
+        if mode == MODE_4_COLOUR:
+            index = (self.__unpack_plane(0) << 1) | self.__unpack_plane(1)
+            palette = _COLOUR4_PALETTES[self.__colour_control & PALETTE_BIT]
+            four_colour: npt.NDArray[np.uint8] = palette[index]
+            return four_colour
 
         # 16-colour: the colour byte for each pixel byte is at the same
         # address in page 1. Its top nibble is the background colour and its
         # bottom nibble the foreground; the pixel bit chooses between them.
-        base = _SCREEN_BASES[self.__screen_select]
-        colour = np.frombuffer(
-            self.__page_memory(1), dtype=np.uint8, count=VIDEO_SIZE,
-            offset=base)
-        per_byte = colour.reshape(SCREEN_WIDTH // 8, SCREEN_HEIGHT).T
-        per_pixel = np.repeat(per_byte, 8, axis=1)
-        foreground = per_pixel & 0x0f
-        background = per_pixel >> 4
-        index = np.where(pixels != 0, foreground, background)
-        coloured: npt.NDArray[np.uint8] = _PALETTE[index]
-        return coloured
+        if mode == MODE_16_COLOUR:
+            pixels = self.read_screen()
+            base = _SCREEN_BASES[self.__screen_select]
+            colour = np.frombuffer(
+                self.__page_memory(1), dtype=np.uint8, count=VIDEO_SIZE,
+                offset=base)
+            per_byte = colour.reshape(SCREEN_WIDTH // 8, SCREEN_HEIGHT).T
+            per_pixel = np.repeat(per_byte, 8, axis=1)
+            foreground = per_pixel & 0x0f
+            background = per_pixel >> 4
+            index = np.where(pixels != 0, foreground, background)
+            coloured: npt.NDArray[np.uint8] = _PALETTE[index]
+            return coloured
+
+        # Monochrome is the Orion's green on black; a blank screen stays
+        # black.
+        frame = np.zeros((SCREEN_HEIGHT, SCREEN_WIDTH, 3), dtype=np.uint8)
+        if mode == MODE_MONOCHROME:
+            frame[self.read_screen() != 0] = _GREEN
+        return frame
