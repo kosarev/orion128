@@ -290,12 +290,17 @@ class Orion128MachineMixin(_MachineBase):
         # above. Capture the latch writes and never touch the ROM. The F900
         # latch also selects the memory page.
         if addr >= MONITOR_BASE:
+            # A latch decodes only the top address byte, so it answers
+            # through its whole 256-byte page: F8xx is the colour latch,
+            # F9xx the page latch, FAxx the screen latch. The OS-DOS 60K
+            # system does write them at other-than-round addresses.
             self.__system_ports[addr] = value
-            if addr == PAGE_SELECT:
+            latch = addr & 0xff00
+            if latch == PAGE_SELECT:
                 self.__select_page(value)
-            elif addr == COLOUR_CONTROL:
+            elif latch == COLOUR_CONTROL:
                 self.__colour_control = value
-            elif addr == SCREEN_SELECT:
+            elif latch == SCREEN_SELECT:
                 self.__screen_select = value & 0x03
             return
 
