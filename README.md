@@ -23,7 +23,7 @@ arguments are ORDOS files (`.ORD` or `.BRU`) preloaded onto the RAM-disk
 orion128 PENX4$.ORD
 ```
 
-F12 is the RESET button. F10 closes the emulator.
+<kbd>F12</kbd> is the RESET button. <kbd>F10</kbd> closes the emulator.
 
 The bundled ROMs are the copyright of their original authors and are not
 covered by this package's MIT licence; see `orion128/ROMS.txt`.
