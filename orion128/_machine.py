@@ -76,6 +76,16 @@ COLOUR_CONTROL = 0xf800
 COLOUR_CONTROL_PORT = 0xf8
 COLOUR_ON = 0x04
 
+# Screen switching at FA00 (or port FA). The low two bits pick one of four
+# screen areas for the video to show, each 12K in the current page. Screen
+# 1 is the power-on default at VIDEO_BASE; each higher-numbered screen sits
+# 0x4000 lower. The colour attributes for the shown screen are at the same
+# address in page 1. This lets a program draw one screen while another is
+# shown, then flip between them.
+SCREEN_SELECT = 0xfa00
+SCREEN_SELECT_PORT = 0xfa
+_SCREEN_BASES = (VIDEO_BASE, 0x8000, 0x4000, 0x0000)
+
 # Monochrome is the Orion's green on black.
 _GREEN = (0x30, 0xff, 0x30)
 
@@ -130,6 +140,7 @@ class Orion128Machine(z80.I8080Machine):
         self.__page_images = {page: bytearray(PAGED_SIZE) for page in range(4)}
         self.__current_page = 0
         self.__colour_control = 0
+        self.__screen_select = 0
         if monitor is not None:
             self.load_monitor(monitor)
 
@@ -156,11 +167,12 @@ class Orion128Machine(z80.I8080Machine):
         '''Reset the processor to the Monitor, as the RESET key does.
 
         RAM, including the RAM-disks, is kept, so the Monitor re-boots ORDOS
-        with everything still in place. The Monitor expects page 0 and a
-        cleared colour mode.
+        with everything still in place. The Monitor expects page 0, the
+        default screen and a cleared colour mode.
         '''
         self.__select_page(0)
         self.__colour_control = 0
+        self.__screen_select = 0
         self.pc = MONITOR_BASE
 
     def load_romdisk(self, romdisk: bytes) -> None:
@@ -227,6 +239,8 @@ class Orion128Machine(z80.I8080Machine):
                 self.__select_page(value)
             elif addr == COLOUR_CONTROL:
                 self.__colour_control = value
+            elif addr == SCREEN_SELECT:
+                self.__screen_select = value & 0x03
             return
 
         # The 8255 region. Writing the ROM-disk address ports makes the
@@ -243,6 +257,8 @@ class Orion128Machine(z80.I8080Machine):
             self.__select_page(value)
         elif port & 0xff == COLOUR_CONTROL_PORT:
             self.__colour_control = value
+        elif port & 0xff == SCREEN_SELECT_PORT:
+            self.__screen_select = value & 0x03
 
     def __select_page(self, page: int) -> None:
         page &= 0x03
@@ -272,9 +288,10 @@ class Orion128Machine(z80.I8080Machine):
     def read_screen(self) -> npt.NDArray[np.uint8]:
         '''Return the screen as a SCREEN_HEIGHT by SCREEN_WIDTH array of
         pixels, each 0 or 1.'''
+        base = _SCREEN_BASES[self.__screen_select]
         video = np.frombuffer(
             self.__page_memory(0), dtype=np.uint8, count=VIDEO_SIZE,
-            offset=VIDEO_BASE)
+            offset=base)
 
         # Bytes go down a column, so the buffer is columns of pixels; put
         # the rows first, then expand each byte into its eight pixels.
@@ -295,9 +312,10 @@ class Orion128Machine(z80.I8080Machine):
         # 16-colour: the colour byte for each pixel byte is at the same
         # address in page 1. Its top nibble is the background colour and its
         # bottom nibble the foreground; the pixel bit chooses between them.
+        base = _SCREEN_BASES[self.__screen_select]
         colour = np.frombuffer(
             self.__page_memory(1), dtype=np.uint8, count=VIDEO_SIZE,
-            offset=VIDEO_BASE)
+            offset=base)
         per_byte = colour.reshape(SCREEN_WIDTH // 8, SCREEN_HEIGHT).T
         per_pixel = np.repeat(per_byte, 8, axis=1)
         foreground = per_pixel & 0x0f
