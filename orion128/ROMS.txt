@@ -1,0 +1,7 @@
+The bundled ROM images, ms7007.rom and disk.rom, are NOT covered by the
+MIT licence that applies to the rest of orion128.
+
+They contain the Orion-128 Monitor, the ORDOS operating system, the VC
+commander and a character generator. These remain the copyright of their
+original authors and are included only so that the emulator boots a
+working system out of the box.

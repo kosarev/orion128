@@ -9,4 +9,18 @@ the disk controller — and runs the real ROM and software on top of it. It is
 built on the [z80](https://github.com/kosarev/z80) package for the i8080 core
 and aims to stay in pure Python. The display is built on PySDL2 and numpy.
 
+It ships with a Monitor and an ORDOS ROM-disk, so it boots a working system
+out of the box:
+
+```shell
+orion128
+```
+
+`--monitor PATH` and `--romdisk PATH` replace the bundled ROMs, and
+`--ord PATH` preloads an ORDOS file (`.ORD` or `.BRU`) onto the RAM-disk
+(drive B:).
+
+The bundled ROMs are the copyright of their original authors and are not
+covered by this package's MIT licence; see `orion128/ROMS.txt`.
+
 This is early work in progress.
