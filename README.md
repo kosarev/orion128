@@ -4,8 +4,8 @@ An emulator of the Orion-128, a home computer built around the KR580VM80A
 processor (an i8080 clone).
 
 [![Python package CI](https://github.com/kosarev/orion128/actions/workflows/python-package.yml/badge.svg)](https://github.com/kosarev/orion128/actions/workflows/python-package.yml)
-[![PyPI](https://img.shields.io/pypi/v/orion128)](https://pypi.org/project/orion128/)
-[![Python](https://img.shields.io/pypi/pyversions/orion128)](https://pypi.org/project/orion128/)
+[![PyPI](https://img.shields.io/pypi/v/orion128?label=PyPI)](https://pypi.org/project/orion128/)
+[![Python](https://img.shields.io/pypi/pyversions/orion128?label=Python)](https://pypi.org/project/orion128/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/kosarev/orion128/blob/main/LICENSE)
 
 orion128 emulates the hardware — memory-mapped video, the keyboard, ports and
