@@ -6,9 +6,9 @@
 #
 #   Published under the MIT license.
 
-import importlib.resources
 import sys
 import time
+from pathlib import Path
 
 from ._display import Display
 from ._machine import CPU_FREQUENCY, Orion128Machine
@@ -17,6 +17,9 @@ from ._machine import CPU_FREQUENCY, Orion128Machine
 # matching slice of ticks between redraws, so it runs at about real speed.
 FRAMES_PER_SECOND = 50
 
+# The bundled default ROMs live next to this module.
+_PACKAGE = Path(__file__).parent
+
 
 def _take_path(args: list[str], option: str) -> str:
     if not args:
@@ -24,32 +27,24 @@ def _take_path(args: list[str], option: str) -> str:
     return args.pop(0)
 
 
-def _parse_args(args: list[str]) -> tuple[str | None, str | None, list[str]]:
+def _parse_args(args: list[str]) -> tuple[Path, Path, list[Path]]:
     '''Read the leading options: '--monitor PATH', '--romdisk PATH' and
-    '--ord PATH' (repeatable, each preloaded onto the RAM-disk).'''
-    monitor = None
-    romdisk = None
+    '--ord PATH' (repeatable, each preloaded onto the RAM-disk). The monitor
+    and ROM-disk default to the bundled ROMs.'''
+    monitor = _PACKAGE / 'ms7007.rom'
+    romdisk = _PACKAGE / 'disk.rom'
     ords = []
     while args and args[0].startswith('--'):
         option = args.pop(0)
         if option == '--monitor':
-            monitor = _take_path(args, option)
+            monitor = Path(_take_path(args, option))
         elif option == '--romdisk':
-            romdisk = _take_path(args, option)
+            romdisk = Path(_take_path(args, option))
         elif option == '--ord':
-            ords.append(_take_path(args, option))
+            ords.append(Path(_take_path(args, option)))
         else:
             sys.exit(f'orion128: unknown option: {option}')
     return monitor, romdisk, ords
-
-
-def _read_file(path: str) -> bytes:
-    with open(path, 'rb') as f:
-        return f.read()
-
-
-def _bundled(name: str) -> bytes:
-    return (importlib.resources.files('orion128') / name).read_bytes()
 
 
 def main() -> None:
@@ -63,12 +58,10 @@ def main() -> None:
     monitor, romdisk, ords = _parse_args(sys.argv[1:])
 
     machine = Orion128Machine()
-    machine.load_monitor(_read_file(monitor) if monitor else
-                         _bundled('ms7007.rom'))
-    machine.load_romdisk(_read_file(romdisk) if romdisk else
-                         _bundled('disk.rom'))
+    machine.load_monitor(monitor.read_bytes())
+    machine.load_romdisk(romdisk.read_bytes())
     if ords:
-        machine.load_ram_disk([_read_file(path) for path in ords])
+        machine.load_ram_disk([path.read_bytes() for path in ords])
 
     ticks_per_frame = CPU_FREQUENCY // FRAMES_PER_SECOND
     display = Display()
