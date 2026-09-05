@@ -13,7 +13,7 @@ import numpy as np
 import numpy.typing as npt
 import sdl2
 
-from ._keyboard import MS7007_KEYS
+from ._keyboard import MS7007, Keyboard
 from ._machine import SCREEN_HEIGHT, SCREEN_WIDTH
 
 # The RESET key is a hardware button, not a matrix key, so it has its own
@@ -32,7 +32,7 @@ class Display:
     '''
 
     def __init__(self, scale: int = 2, title: str = 'Orion-128',
-                 keys: dict[int, tuple[int, int]] = MS7007_KEYS) -> None:
+                 keyboard: Keyboard = MS7007) -> None:
         # On Wayland, use the Wayland driver so the window follows the
         # system display scaling instead of being upscaled by XWayland.
         on_wayland = 'WAYLAND_DISPLAY' in os.environ
@@ -58,7 +58,7 @@ class Display:
             self.__renderer, sdl2.SDL_PIXELFORMAT_RGB24,
             sdl2.SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT)
 
-        self.__matrix = keys
+        self.__keyboard = keyboard
         self.__quit = False
         self.__reset_pressed = False
         self.__keys_down: set[int] = set()
@@ -92,8 +92,7 @@ class Display:
 
     def pressed_keys(self) -> set[tuple[int, int]]:
         '''The pressed keys as Orion (column, row) matrix crossings.'''
-        return {self.__matrix[key]
-                for key in self.__keys_down if key in self.__matrix}
+        return self.__keyboard.crossings(self.__keys_down)
 
     def take_reset(self) -> bool:
         '''Report whether the RESET key was pressed, and clear it.'''

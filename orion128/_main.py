@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 from ._display import Display
-from ._keyboard import MS7007_KEYS, RK86_KEYS
+from ._keyboard import MS7007, RK86
 from ._machine import CPU_FREQUENCY, Orion128Machine
 
 # The window is redrawn this many times a second, and the processor runs a
@@ -79,7 +79,7 @@ def main() -> None:
         machine.load_ram_disk([path.read_bytes() for path in files])
 
     ticks_per_frame = CPU_FREQUENCY // FRAMES_PER_SECOND
-    display = Display(keys=RK86_KEYS if rk86 else MS7007_KEYS)
+    display = Display(keyboard=RK86 if rk86 else MS7007)
     try:
         while not display.closed():
             if display.take_reset():
