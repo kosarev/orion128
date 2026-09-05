@@ -10,6 +10,8 @@ import numpy as np
 import numpy.typing as npt
 import z80
 
+from ._floppy import FDC
+
 # The Orion-128 screen is a bitmap of this size.
 SCREEN_WIDTH = 384
 SCREEN_HEIGHT = 256
@@ -53,6 +55,17 @@ ROMDISK_PORT = 0xf500
 KEYBOARD_SCAN = 0xf400
 KEYBOARD_SENSE = 0xf401
 KEYBOARD_SENSE_C = 0xf402
+
+# The floppy controller on the F700 expansion (Radio 1993/05-06). Its
+# address decoder diode-ORs the select lines, so the WD1793's four
+# registers answer at both F700-F703 and F710-F713, and the control
+# register at F704, F714 and F720. So each register has several addresses.
+FDC_COMMAND = frozenset({0xf700, 0xf710})   # command (write) / status (read)
+FDC_TRACK = frozenset({0xf701, 0xf711})
+FDC_SECTOR = frozenset({0xf702, 0xf712})
+FDC_DATA = frozenset({0xf703, 0xf713})
+FDC_CONTROL = frozenset({0xf704, 0xf714, 0xf720})  # write; read = request
+_FDC_READS = FDC_COMMAND | FDC_DATA | FDC_CONTROL
 
 # Memory paging. The processor's page for the 0x0000-0xEFFF region is
 # selected through port F9 (or the F900 latch). The selected page is
@@ -141,6 +154,7 @@ class Orion128Machine(z80.I8080Machine):
         self.__current_page = 0
         self.__colour_control = 0
         self.__screen_select = 0
+        self.__fdc = FDC()
         if monitor is not None:
             self.load_monitor(monitor)
 
@@ -162,6 +176,17 @@ class Orion128Machine(z80.I8080Machine):
 
         # Port F9 selects the memory page.
         self.set_output_callback(self.__on_output)
+
+        # The floppy controller serves its status and data registers
+        # dynamically, so those reads go through a callback rather than
+        # memory.
+        self.set_read_callback(self.__on_read)
+        for addr in _FDC_READS:
+            self.mark_addr(addr, self.READ_MARK)
+
+    def mount_disk(self, image: bytes) -> None:
+        '''Put a disk image in the floppy drive.'''
+        self.__fdc.mount(image)
 
     def reset(self) -> None:
         '''Reset the processor to the Monitor, as the RESET key does.
@@ -251,6 +276,26 @@ class Orion128Machine(z80.I8080Machine):
         elif addr == KEYBOARD_SCAN:
             self.__scan = value
             self.__update_keyboard()
+        elif addr in FDC_COMMAND:
+            self.__fdc.write_command(value)
+        elif addr in FDC_TRACK:
+            self.__fdc.write_track(value)
+        elif addr in FDC_SECTOR:
+            self.__fdc.write_sector(value)
+        elif addr in FDC_DATA:
+            self.__fdc.write_data(value)
+        elif addr in FDC_CONTROL:
+            self.__fdc.write_control(value)
+
+    def __on_read(self, addr: int) -> int:
+        # The floppy controller's status, data and request registers.
+        if addr in FDC_COMMAND:
+            return self.__fdc.read_status()
+        if addr in FDC_DATA:
+            return self.__fdc.read_data()
+        if addr in FDC_CONTROL:
+            return self.__fdc.read_request()
+        return self.memory[addr]
 
     def __on_output(self, port: int, value: int) -> None:
         if port & 0xff == PAGE_SELECT_PORT:
