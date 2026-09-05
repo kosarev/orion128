@@ -20,9 +20,10 @@ working system out of the box:
 orion128
 ```
 
-`--monitor PATH` and `--romdisk PATH` replace the bundled ROMs. Any further
-arguments are ORDOS files (`.ORD` or `.BRU`) preloaded onto the RAM-disk
-(drive B:):
+`--rk86` selects the RK-86 keyboard machine, with its own Monitor and
+keyboard layout, for software written for that keyboard. `--monitor PATH`
+and `--romdisk PATH` replace the bundled ROMs. Any further arguments are
+ORDOS files (`.ORD` or `.BRU`) preloaded onto the RAM-disk (drive B:):
 
 ```shell
 orion128 PENX4$.ORD
