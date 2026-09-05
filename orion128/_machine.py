@@ -180,6 +180,8 @@ class Orion128MachineMixin(_MachineBase):
         self.__romdisk = b''
         self.__romdisk_addr = 0
         self.__scan = 0xff
+        self.__row_drive_b = 0xff
+        self.__row_drive_c = 0xff
         self.__keys: set[tuple[int, int]] = set()
         self.__page_images = {page: bytearray(PAGED_SIZE) for page in range(4)}
         self.__current_page = 0
@@ -269,9 +271,13 @@ class Orion128MachineMixin(_MachineBase):
         self.__update_keyboard()
 
     def __update_keyboard(self) -> None:
-        # A pressed key pulls its sense row low while its scan column is
-        # driven low. Rows 0-7 report on port B, rows 8-11 on the top of
-        # port C.
+        # A pressed key connects its column line to its row line, and the
+        # matrix scans in either direction. The Monitor drives the columns
+        # on port A and senses the rows on port B (rows 0-7) and the top of
+        # port C (rows 8-11). FOOL.COM scans the other way round: it drives
+        # the rows through ports B and C and senses the columns back on
+        # port A. Compute all three senses from the driven lines.
+        sense_a = 0xff
         sense_b = 0xff
         sense_c = 0xff
         for column, row in self.__keys:
@@ -280,6 +286,13 @@ class Orion128MachineMixin(_MachineBase):
                     sense_b &= ~(1 << row) & 0xff
                 else:
                     sense_c &= ~(1 << (row - 8 + 4)) & 0xff
+            if row < 8:
+                row_driven = not (self.__row_drive_b >> row) & 1
+            else:
+                row_driven = not (self.__row_drive_c >> (row - 8 + 4)) & 1
+            if row_driven:
+                sense_a &= ~(1 << column) & 0xff
+        self.set_memory_block(KEYBOARD_SCAN, bytes([sense_a]))
         self.set_memory_block(KEYBOARD_SENSE, bytes([sense_b]))
         self.set_memory_block(KEYBOARD_SENSE_C, bytes([sense_c]))
 
@@ -311,6 +324,12 @@ class Orion128MachineMixin(_MachineBase):
             self.__set_romdisk_address(addr, value)
         elif addr == KEYBOARD_SCAN:
             self.__scan = value
+            self.__update_keyboard()
+        elif addr == KEYBOARD_SENSE:
+            self.__row_drive_b = value
+            self.__update_keyboard()
+        elif addr == KEYBOARD_SENSE_C:
+            self.__row_drive_c = value
             self.__update_keyboard()
         elif addr in FDC_COMMAND:
             self.__fdc.write_command(value)
