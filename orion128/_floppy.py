@@ -15,7 +15,8 @@ issues a command, then reads or writes the data register a byte at a time
 while the status shows a data request, until the busy bit clears.
 
 Only what the Orion software needs is emulated: positioning the head
-(restore, seek, step) and reading whole sectors. Writing is to follow.
+(restore, seek, step) and reading and writing whole sectors. The image is
+changed in memory only; it is not written back to the host file.
 '''
 
 # WD1793 status bits.
@@ -60,6 +61,9 @@ class FDC:
         # The sector being transferred, and how far through it we are.
         self.__buffer = bytearray()
         self.__index = 0
+        # A write sector in progress: the bytes collected and where they go.
+        self.__writing = False
+        self.__write_offset = 0
 
     def mount(self, image: bytes) -> None:
         '''Put a disk image in the drive.'''
@@ -104,11 +108,23 @@ class FDC:
             assert self.__image is not None
             self.__buffer = self.__image[offset:offset + SECTOR_SIZE]
             self.__index = 0
+            self.__writing = False
+            self.__status = _BUSY | _DRQ
+        # Write Sector: collect the bytes, then store them in the image.
+        elif value < 0xc0:
+            offset = self.__offset()
+            if offset is None:
+                self.__status = _NOT_FOUND
+                return
+            self.__buffer = bytearray()
+            self.__write_offset = offset
+            self.__writing = True
             self.__status = _BUSY | _DRQ
         # Force Interrupt ends any operation.
         elif top == 0xd0:
             self.__buffer = bytearray()
             self.__index = 0
+            self.__writing = False
             self.__status = 0
 
     def write_track(self, value: int) -> None:
@@ -118,7 +134,18 @@ class FDC:
         self.__sector = value
 
     def write_data(self, value: int) -> None:
+        # The data register also holds the target track for Seek, so keep
+        # its value; during a Write Sector, collect it into the sector and
+        # store the sector once it is full.
         self.__data = value
+        if self.__writing and self.__status & _DRQ:
+            self.__buffer.append(value)
+            if len(self.__buffer) >= SECTOR_SIZE:
+                assert self.__image is not None
+                end = self.__write_offset + SECTOR_SIZE
+                self.__image[self.__write_offset:end] = self.__buffer
+                self.__writing = False
+                self.__status = 0
 
     def write_control(self, value: int) -> None:
         self.__control = value
