@@ -13,6 +13,10 @@ the disk controller — and runs the real ROM and software on top of it. It is
 built on the [z80](https://github.com/kosarev/z80) package for the i8080 core
 and aims to stay in pure Python. The display is built on PySDL2 and numpy.
 
+Norton Commander (NC.COM) running under CP/M, booted from a disk image:
+
+![NC.COM running under CP/M](nc.png)
+
 It ships with the MS7007 Monitor and an ORDOS 4.03 ROM-disk, so it boots a
 working system out of the box:
 
