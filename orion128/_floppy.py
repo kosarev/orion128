@@ -41,10 +41,10 @@ def is_disk_image(size: int) -> bool:
     return size % TRACK_SIZE == 0 and size // TRACK_SIZE >= 40
 
 
-# The control register's side-select bit. Provisional, to be confirmed
-# against the disk test: BOOT$ writes 0x10 and 0x50, so the 0x40 bit is
-# the one that changes and reads as the side.
-_SIDE_BIT = 0x40
+# The control register's side-select bit. The CP/M boot sector toggles
+# bit 0x10 (`and 0xef`) between the two sides of a track, so that is the
+# side bit.
+_SIDE_BIT = 0x10
 
 
 class FDC:
@@ -74,7 +74,9 @@ class FDC:
     def __offset(self) -> int | None:
         '''The image offset of the current track, side and sector, or None
         if there is no such sector.'''
-        side = 1 if self.__control & _SIDE_BIT else 0
+        # The side bit is active low: bit set selects side 0. Proven by the
+        # CP/M boot, which loads a coherent BIOS only with this polarity.
+        side = 0 if self.__control & _SIDE_BIT else 1
         if (self.__image is None or self.__track >= self.__tracks
                 or not 1 <= self.__sector <= SECTORS_PER_TRACK):
             return None
