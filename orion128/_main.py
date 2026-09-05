@@ -10,7 +10,7 @@ import sys
 import time
 from pathlib import Path
 
-from ._display import Display
+from ._display import MS7007_KEYS, RK86_KEYS, Display
 from ._machine import CPU_FREQUENCY, Orion128Machine
 
 # The window is redrawn this many times a second, and the processor runs a
@@ -27,33 +27,49 @@ def _take_path(args: list[str], option: str) -> str:
     return args.pop(0)
 
 
-def _parse_args(args: list[str]) -> tuple[Path, Path, list[Path]]:
-    '''Read the leading options -- '--monitor PATH' and '--romdisk PATH',
-    each defaulting to the bundled ROM -- followed by any number of ORDOS
-    files (.ORD or .BRU) to preload onto the RAM-disk (drive B:).'''
-    monitor = _PACKAGE / 'ms7007.rom'
-    romdisk = _PACKAGE / 'disk.rom'
+def _parse_args(
+        args: list[str]) -> tuple[bool, Path | None, Path | None, list[Path]]:
+    '''Read the leading options and the file arguments.
+
+    The options are '--rk86' (the RK-86 keyboard machine, with its Monitor
+    and keyboard layout), '--monitor PATH' and '--romdisk PATH' (each
+    replacing the bundled default). The remaining arguments are ORDOS files
+    (.ORD or .BRU) to preload onto the RAM-disk (drive B:). A missing
+    monitor or ROM-disk is returned as None for the caller to default.
+    '''
+    rk86 = False
+    monitor = None
+    romdisk = None
     while args and args[0].startswith('--'):
         option = args.pop(0)
-        if option == '--monitor':
+        if option == '--rk86':
+            rk86 = True
+        elif option == '--monitor':
             monitor = Path(_take_path(args, option))
         elif option == '--romdisk':
             romdisk = Path(_take_path(args, option))
         else:
             sys.exit(f'orion128: unknown option: {option}')
     files = [Path(arg) for arg in args]
-    return monitor, romdisk, files
+    return rk86, monitor, romdisk, files
 
 
 def main() -> None:
     '''The orion128 command-line entry point.
 
     It runs the machine and shows its screen until the window is closed. By
-    default it boots the bundled Monitor and ORDOS ROM-disk; '--monitor
-    PATH' and '--romdisk PATH' replace them. Any further arguments are ORDOS
-    files (.ORD or .BRU) preloaded onto the RAM-disk (drive B:).
+    default it boots the bundled MS7007 Monitor and ORDOS ROM-disk. '--rk86'
+    selects the RK-86 keyboard machine instead, with its own Monitor and
+    keyboard layout. '--monitor PATH' and '--romdisk PATH' replace the
+    bundled ROMs. Any further arguments are ORDOS files (.ORD or .BRU)
+    preloaded onto the RAM-disk (drive B:).
     '''
-    monitor, romdisk, files = _parse_args(sys.argv[1:])
+    rk86, monitor, romdisk, files = _parse_args(sys.argv[1:])
+
+    if monitor is None:
+        monitor = _PACKAGE / ('m2rk86.rom' if rk86 else 'ms7007.rom')
+    if romdisk is None:
+        romdisk = _PACKAGE / 'disk.rom'
 
     machine = Orion128Machine()
     machine.load_monitor(monitor.read_bytes())
@@ -62,7 +78,7 @@ def main() -> None:
         machine.load_ram_disk([path.read_bytes() for path in files])
 
     ticks_per_frame = CPU_FREQUENCY // FRAMES_PER_SECOND
-    display = Display()
+    display = Display(keys=RK86_KEYS if rk86 else MS7007_KEYS)
     try:
         while not display.closed():
             if display.take_reset():

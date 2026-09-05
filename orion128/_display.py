@@ -20,7 +20,7 @@ from ._machine import SCREEN_HEIGHT, SCREEN_WIDTH
 # and the top of port C (8-11). The crossings were read off the Monitor
 # itself, by pressing each one and seeing which character it decodes, so
 # the host letter and digit keys reach the Orion keys of the same name.
-_KEY_MATRIX = {
+MS7007_KEYS = {
     sdl2.SDLK_a: (4, 4), sdl2.SDLK_b: (4, 0), sdl2.SDLK_c: (3, 2),
     sdl2.SDLK_d: (3, 1), sdl2.SDLK_e: (2, 7), sdl2.SDLK_f: (3, 11),
     sdl2.SDLK_g: (3, 6), sdl2.SDLK_h: (7, 0), sdl2.SDLK_i: (4, 7),
@@ -47,6 +47,37 @@ _KEY_MATRIX = {
     sdl2.SDLK_LSHIFT: (5, 9), sdl2.SDLK_RSHIFT: (5, 9),
 }
 
+# The RK-86 keyboard, for machines built with it (the --rk86 Monitor). Read
+# off the M2rk Monitor the same way. Its matrix is the regular RK-86 ASCII
+# grid: letters and digits in columns 2-7, the control keys in columns 0-1.
+# Games that scan the matrix directly, such as MANIC, rely on these exact
+# positions, so their keys land nowhere on the MS7007 layout.
+RK86_KEYS = {
+    sdl2.SDLK_a: (4, 1), sdl2.SDLK_b: (4, 2), sdl2.SDLK_c: (4, 3),
+    sdl2.SDLK_d: (4, 4), sdl2.SDLK_e: (4, 5), sdl2.SDLK_f: (4, 6),
+    sdl2.SDLK_g: (4, 7), sdl2.SDLK_h: (5, 0), sdl2.SDLK_i: (5, 1),
+    sdl2.SDLK_j: (5, 2), sdl2.SDLK_k: (5, 3), sdl2.SDLK_l: (5, 4),
+    sdl2.SDLK_m: (5, 5), sdl2.SDLK_n: (5, 6), sdl2.SDLK_o: (5, 7),
+    sdl2.SDLK_p: (6, 0), sdl2.SDLK_q: (6, 1), sdl2.SDLK_r: (6, 2),
+    sdl2.SDLK_s: (6, 3), sdl2.SDLK_t: (6, 4), sdl2.SDLK_u: (6, 5),
+    sdl2.SDLK_v: (6, 6), sdl2.SDLK_w: (6, 7), sdl2.SDLK_x: (7, 0),
+    sdl2.SDLK_y: (7, 1), sdl2.SDLK_z: (7, 2),
+    sdl2.SDLK_0: (2, 0), sdl2.SDLK_1: (2, 1), sdl2.SDLK_2: (2, 2),
+    sdl2.SDLK_3: (2, 3), sdl2.SDLK_4: (2, 4), sdl2.SDLK_5: (2, 5),
+    sdl2.SDLK_6: (2, 6), sdl2.SDLK_7: (2, 7), sdl2.SDLK_8: (3, 0),
+    sdl2.SDLK_9: (3, 1),
+    sdl2.SDLK_SEMICOLON: (3, 3), sdl2.SDLK_COMMA: (3, 4),
+    sdl2.SDLK_MINUS: (3, 5), sdl2.SDLK_PERIOD: (3, 6),
+    sdl2.SDLK_SLASH: (3, 7), sdl2.SDLK_LEFTBRACKET: (7, 3),
+    sdl2.SDLK_RIGHTBRACKET: (7, 5), sdl2.SDLK_BACKSLASH: (7, 4),
+    sdl2.SDLK_SPACE: (7, 7), sdl2.SDLK_RETURN: (1, 2),
+    sdl2.SDLK_BACKSPACE: (1, 4), sdl2.SDLK_TAB: (1, 0),
+    sdl2.SDLK_ESCAPE: (0, 2),
+    # The RK-86 cursor codes: left 08, right 18, up 19, down 1A.
+    sdl2.SDLK_LEFT: (1, 4), sdl2.SDLK_RIGHT: (1, 6),
+    sdl2.SDLK_UP: (1, 5), sdl2.SDLK_DOWN: (1, 7),
+}
+
 # The RESET key is a hardware button, not a matrix key, so it has its own
 # host key.
 _RESET_KEY = sdl2.SDLK_F12
@@ -62,7 +93,8 @@ class Display:
     white, scaled up so the small screen is comfortable to look at.
     '''
 
-    def __init__(self, scale: int = 2, title: str = 'Orion-128') -> None:
+    def __init__(self, scale: int = 2, title: str = 'Orion-128',
+                 keys: dict[int, tuple[int, int]] = MS7007_KEYS) -> None:
         # On Wayland, use the Wayland driver so the window follows the
         # system display scaling instead of being upscaled by XWayland.
         on_wayland = 'WAYLAND_DISPLAY' in os.environ
@@ -88,6 +120,7 @@ class Display:
             self.__renderer, sdl2.SDL_PIXELFORMAT_RGB24,
             sdl2.SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT)
 
+        self.__matrix = keys
         self.__quit = False
         self.__reset_pressed = False
         self.__keys_down: set[int] = set()
@@ -121,8 +154,8 @@ class Display:
 
     def pressed_keys(self) -> set[tuple[int, int]]:
         '''The pressed keys as Orion (column, row) matrix crossings.'''
-        return {_KEY_MATRIX[key]
-                for key in self.__keys_down if key in _KEY_MATRIX}
+        return {self.__matrix[key]
+                for key in self.__keys_down if key in self.__matrix}
 
     def take_reset(self) -> bool:
         '''Report whether the RESET key was pressed, and clear it.'''
