@@ -28,23 +28,21 @@ def _take_path(args: list[str], option: str) -> str:
 
 
 def _parse_args(args: list[str]) -> tuple[Path, Path, list[Path]]:
-    '''Read the leading options: '--monitor PATH', '--romdisk PATH' and
-    '--ord PATH' (repeatable, each preloaded onto the RAM-disk). The monitor
-    and ROM-disk default to the bundled ROMs.'''
+    '''Read the leading options -- '--monitor PATH' and '--romdisk PATH',
+    each defaulting to the bundled ROM -- followed by any number of ORDOS
+    files (.ORD or .BRU) to preload onto the RAM-disk (drive B:).'''
     monitor = _PACKAGE / 'ms7007.rom'
     romdisk = _PACKAGE / 'disk.rom'
-    ords = []
     while args and args[0].startswith('--'):
         option = args.pop(0)
         if option == '--monitor':
             monitor = Path(_take_path(args, option))
         elif option == '--romdisk':
             romdisk = Path(_take_path(args, option))
-        elif option == '--ord':
-            ords.append(Path(_take_path(args, option)))
         else:
             sys.exit(f'orion128: unknown option: {option}')
-    return monitor, romdisk, ords
+    files = [Path(arg) for arg in args]
+    return monitor, romdisk, files
 
 
 def main() -> None:
@@ -52,16 +50,16 @@ def main() -> None:
 
     It runs the machine and shows its screen until the window is closed. By
     default it boots the bundled Monitor and ORDOS ROM-disk; '--monitor
-    PATH' and '--romdisk PATH' replace them. '--ord PATH' preloads an ORDOS
-    file (.ORD or .BRU) onto the RAM-disk (drive B:); repeat it for several.
+    PATH' and '--romdisk PATH' replace them. Any further arguments are ORDOS
+    files (.ORD or .BRU) preloaded onto the RAM-disk (drive B:).
     '''
-    monitor, romdisk, ords = _parse_args(sys.argv[1:])
+    monitor, romdisk, files = _parse_args(sys.argv[1:])
 
     machine = Orion128Machine()
     machine.load_monitor(monitor.read_bytes())
     machine.load_romdisk(romdisk.read_bytes())
-    if ords:
-        machine.load_ram_disk([path.read_bytes() for path in ords])
+    if files:
+        machine.load_ram_disk([path.read_bytes() for path in files])
 
     ticks_per_frame = CPU_FREQUENCY // FRAMES_PER_SECOND
     display = Display()

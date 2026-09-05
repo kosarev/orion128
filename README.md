@@ -15,9 +15,13 @@ out of the box:
 orion128
 ```
 
-`--monitor PATH` and `--romdisk PATH` replace the bundled ROMs, and
-`--ord PATH` preloads an ORDOS file (`.ORD` or `.BRU`) onto the RAM-disk
-(drive B:).
+`--monitor PATH` and `--romdisk PATH` replace the bundled ROMs. Any further
+arguments are ORDOS files (`.ORD` or `.BRU`) preloaded onto the RAM-disk
+(drive B:):
+
+```shell
+orion128 PENX4$.ORD
+```
 
 The bundled ROMs are the copyright of their original authors and are not
 covered by this package's MIT licence; see `orion128/ROMS.txt`.
