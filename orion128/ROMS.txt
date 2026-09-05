@@ -3,6 +3,6 @@ covered by the MIT licence that applies to the rest of orion128.
 
 ms7007.rom and m2rk86.rom are Orion-128 Monitors, for the MS7007 and the
 RK-86 keyboard respectively. disk.rom is an ORDOS ROM-disk with the VC
-commander and a character generator. These remain the copyright of their
-original authors and are included only so that the emulator boots a
-working system out of the box.
+commander, the LDOS CP/M loader and a character generator. These remain
+the copyright of their original authors and are included only so that the
+emulator boots a working system out of the box.
