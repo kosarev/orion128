@@ -51,5 +51,3 @@ directly, like Manic Miner, keep working too.
 
 The bundled ROMs are the copyright of their original authors and are not
 covered by this package's MIT licence; see `orion128/ROMS.txt`.
-
-This is early work in progress.
