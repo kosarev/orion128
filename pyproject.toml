@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'orion128'
-version = '0.1.0'
+version = '0.1.0a1'
 description = 'Orion-128 home computer emulator'
 readme = 'README.md'
 license = {text = 'MIT'}
@@ -18,7 +18,7 @@ dependencies = [
   'numpy',
 ]
 classifiers = [
-  'Development Status :: 2 - Pre-Alpha',
+  'Development Status :: 3 - Alpha',
   'Environment :: X11 Applications',
   'Intended Audience :: Developers',
   'Intended Audience :: End Users/Desktop',
