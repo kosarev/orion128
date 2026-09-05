@@ -184,9 +184,9 @@ class Orion128Machine(z80.I8080Machine):
         for addr in _FDC_READS:
             self.mark_addr(addr, self.READ_MARK)
 
-    def mount_disk(self, image: bytes) -> None:
-        '''Put a disk image in the floppy drive.'''
-        self.__fdc.mount(image)
+    def mount_disks(self, images: list[bytes]) -> None:
+        '''Put disk images in the floppy drives, in order (A, B, C, D).'''
+        self.__fdc.mount(images)
 
     def reset(self) -> None:
         '''Reset the processor to the Monitor, as the RESET key does.

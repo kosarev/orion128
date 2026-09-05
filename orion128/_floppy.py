@@ -48,11 +48,15 @@ _SIDE_BIT = 0x10
 
 
 class FDC:
-    '''A single floppy drive behind a WD1793 controller.'''
+    '''The floppy drives behind a WD1793 controller.
+
+    The control register's low two bits select the drive, so the drives are
+    a list of images, one per drive letter; a drive with no image reads as
+    not ready.
+    '''
 
     def __init__(self) -> None:
-        self.__image: bytearray | None = None
-        self.__tracks = 0
+        self.__images: list[bytearray] = []
         self.__status = _NOT_READY
         self.__track = 0
         self.__sector = 1
@@ -63,21 +67,26 @@ class FDC:
         self.__index = 0
         # A write sector in progress: the bytes collected and where they go.
         self.__writing = False
+        self.__write_image: bytearray | None = None
         self.__write_offset = 0
 
-    def mount(self, image: bytes) -> None:
-        '''Put a disk image in the drive.'''
-        self.__image = bytearray(image)
-        self.__tracks = len(image) // (SIDES * SECTORS_PER_TRACK * SECTOR_SIZE)
-        self.__status = 0
+    def mount(self, images: list[bytes]) -> None:
+        '''Put the disk images in the drives, in order (A, B, C, D).'''
+        self.__images = [bytearray(image) for image in images]
 
-    def __offset(self) -> int | None:
-        '''The image offset of the current track, side and sector, or None
-        if there is no such sector.'''
+    def __image(self) -> bytearray | None:
+        '''The image in the selected drive, or None if it holds no disk.'''
+        drive = self.__control & 0x03
+        return self.__images[drive] if drive < len(self.__images) else None
+
+    def __offset(self, image: bytearray) -> int | None:
+        '''The offset of the current track, side and sector in the image, or
+        None if there is no such sector.'''
         # The side bit is active low: bit set selects side 0. Proven by the
         # CP/M boot, which loads a coherent BIOS only with this polarity.
         side = 0 if self.__control & _SIDE_BIT else 1
-        if (self.__image is None or self.__track >= self.__tracks
+        tracks = len(image) // TRACK_SIZE
+        if (self.__track >= tracks
                 or not 1 <= self.__sector <= SECTORS_PER_TRACK):
             return None
         row = (self.__track * SIDES + side) * SECTORS_PER_TRACK
@@ -85,7 +94,8 @@ class FDC:
 
     def write_command(self, value: int) -> None:
         '''Handle a command written to the command register.'''
-        if self.__image is None:
+        image = self.__image()
+        if image is None:
             self.__status = _NOT_READY
             return
 
@@ -103,22 +113,22 @@ class FDC:
             self.__status = 0
         # Read Sector: load the sector and request its bytes.
         elif value < 0xa0:
-            offset = self.__offset()
+            offset = self.__offset(image)
             if offset is None:
                 self.__status = _NOT_FOUND
                 return
-            assert self.__image is not None
-            self.__buffer = self.__image[offset:offset + SECTOR_SIZE]
+            self.__buffer = image[offset:offset + SECTOR_SIZE]
             self.__index = 0
             self.__writing = False
             self.__status = _BUSY | _DRQ
         # Write Sector: collect the bytes, then store them in the image.
         elif value < 0xc0:
-            offset = self.__offset()
+            offset = self.__offset(image)
             if offset is None:
                 self.__status = _NOT_FOUND
                 return
             self.__buffer = bytearray()
+            self.__write_image = image
             self.__write_offset = offset
             self.__writing = True
             self.__status = _BUSY | _DRQ
@@ -143,9 +153,9 @@ class FDC:
         if self.__writing and self.__status & _DRQ:
             self.__buffer.append(value)
             if len(self.__buffer) >= SECTOR_SIZE:
-                assert self.__image is not None
+                assert self.__write_image is not None
                 end = self.__write_offset + SECTOR_SIZE
-                self.__image[self.__write_offset:end] = self.__buffer
+                self.__write_image[self.__write_offset:end] = self.__buffer
                 self.__writing = False
                 self.__status = 0
 

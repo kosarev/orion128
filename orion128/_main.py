@@ -76,8 +76,9 @@ def main() -> None:
         romdisk = _PACKAGE / 'disk.rom'
 
     # Sort the file arguments: a floppy image (recognised by its size) goes
-    # in the drive; anything else is an ORDOS file for the RAM-disk. A
-    # .ORD/.BRU name is always an ORDOS file, never a disk.
+    # in a drive; anything else is an ORDOS file for the RAM-disk. A
+    # .ORD/.BRU name is always an ORDOS file, never a disk. The disk images
+    # fill the drives in the order given (A, B, C, D).
     disks = []
     ords = []
     for path in files:
@@ -87,14 +88,13 @@ def main() -> None:
             disks.append(path)
         else:
             sys.exit(f'orion128: {path}: not an ORDOS file or a disk image')
-    if len(disks) > 1:
-        sys.exit('orion128: only one floppy drive is supported')
+    if len(disks) > 4:
+        sys.exit('orion128: at most four floppy drives are supported')
 
     machine = Orion128Machine()
     machine.load_monitor(monitor.read_bytes())
     machine.load_romdisk(romdisk.read_bytes())
-    if disks:
-        machine.mount_disk(disks[0].read_bytes())
+    machine.mount_disks([path.read_bytes() for path in disks])
     if ords:
         machine.load_ram_disk([path.read_bytes() for path in ords])
 
