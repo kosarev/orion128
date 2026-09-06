@@ -11,14 +11,17 @@ processor (an i8080 clone).
 orion128 emulates the hardware — memory-mapped video, the keyboard, ports and
 the disk controller — and runs the real ROM and software on top of it. It is
 built on the [z80](https://github.com/kosarev/z80) package for the i8080 core
-and aims to stay in pure Python. The display is built on PySDL2 and numpy.
+and on [cpm80](https://github.com/kosarev/cpm80) for the CP/M side of the
+disks, and aims to stay in pure Python. The display is built on PySDL2 and
+numpy.
 
 Norton Commander (NC.COM) running under CP/M, booted from a disk image:
 
 ![NC.COM running under CP/M](https://raw.githubusercontent.com/kosarev/orion128/main/nc.png)
 
-It ships with the MS7007 Monitor and an ORDOS 4.03 ROM-disk, so it boots a
-working system out of the box:
+It ships with the Monitors for both Orion keyboards, the MS7007 and the
+RK-86, and an ORDOS 4.03 ROM-disk, so it boots a working system out of the
+box:
 
 ```shell
 orion128
