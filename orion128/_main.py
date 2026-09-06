@@ -13,7 +13,12 @@ from pathlib import Path
 from ._display import Display
 from ._floppy import is_disk_image
 from ._keyboard import MS7007, RK86
-from ._machine import CPU_FREQUENCY, Orion128Machine, Orion128Z80Machine
+from ._machine import (
+    CPU_FREQUENCY,
+    ORDOSFile,
+    Orion128Machine,
+    Orion128Z80Machine,
+)
 
 # The window is redrawn this many times a second, and the processor runs a
 # matching slice of ticks between redraws, so it runs at about real speed.
@@ -86,10 +91,10 @@ def main() -> None:
     # .ORD/.BRU name is always an ORDOS file, never a disk. The disk images
     # fill the drives in the order given (A, B, C, D).
     disks = []
-    ordos_files = []
+    ordos_paths = []
     for path in files:
         if path.suffix.lower() in ('.ord', '.bru'):
-            ordos_files.append(path)
+            ordos_paths.append(path)
         elif is_disk_image(path.stat().st_size):
             disks.append(path)
         else:
@@ -97,12 +102,19 @@ def main() -> None:
     if len(disks) > 4:
         sys.exit('orion128: at most four floppy drives are supported')
 
+    ordos_files = []
+    for path in ordos_paths:
+        try:
+            ordos_files.append(ORDOSFile.parse(path.read_bytes()))
+        except ValueError as e:
+            sys.exit(f'orion128: {path}: {e}')
+
     machine = Orion128Z80Machine() if z80 else Orion128Machine()
     machine.load_monitor(monitor.read_bytes())
     machine.load_romdisk(romdisk.read_bytes())
     machine.mount_disks([path.read_bytes() for path in disks])
     if ordos_files:
-        machine.load_ram_disk([path.read_bytes() for path in ordos_files])
+        machine.load_ram_disk(ordos_files)
 
     ticks_per_frame = CPU_FREQUENCY // FRAMES_PER_SECOND
     display = Display(keyboard=RK86 if rk86 else MS7007)

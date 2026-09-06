@@ -137,20 +137,55 @@ _COLOUR4_PALETTES = np.array(
     dtype=np.uint8)
 
 
-def _to_record(data: bytes) -> bytes:
-    '''Normalise a stored ORDOS file to an on-disk record.
+class ORDOSFile:
+    '''An ORDOS file: a name, a load address and the data.
 
-    An on-disk record holds the data length in its size field and no
-    padding. A .ORD file puts the whole file length there (16 more than the
-    data); a .BRU file puts the data length but pads the data to a block
-    boundary. Tell them apart by whether the size field plus the 16-byte
-    header still fits inside the file.
+    On a disk the file is stored as a record: a 16-byte header, then the
+    data. The header holds the name padded with spaces to 8 bytes, the
+    2-byte load address, the 2-byte data size and four unused bytes. A
+    host file is a copy of such a record, often followed by padding from
+    the sector or block it was cut out of.
     '''
-    size = data[10] | (data[11] << 8)
-    data_size = size if 16 + size <= len(data) else len(data) - 16
-    record = bytearray(data[:16 + data_size])
-    record[10:12] = data_size.to_bytes(2, 'little')
-    return bytes(record)
+    HEADER_SIZE = 16
+    NAME_SIZE = 8
+
+    def __init__(self, name: bytes, load_addr: int, data: bytes) -> None:
+        if len(name) > self.NAME_SIZE:
+            raise ValueError(f'ORDOS file name {name!r} is longer than '
+                             f'{self.NAME_SIZE} bytes')
+        if len(data) > 0xffff:
+            raise ValueError(f'ORDOS file data of {len(data)} bytes does '
+                             f'not fit the 2-byte size field')
+        self.name = name
+        self.load_addr = load_addr
+        self.data = data
+
+    @classmethod
+    def parse(cls, image: bytes) -> 'ORDOSFile':
+        '''Read the file out of a stored record.
+
+        Anything after the data is padding and is dropped. Raises
+        ValueError if the image is too short for the record it describes.
+        '''
+        if len(image) < cls.HEADER_SIZE:
+            raise ValueError(f'shorter than the {cls.HEADER_SIZE}-byte '
+                             f'ORDOS file header')
+        name = image[:cls.NAME_SIZE].rstrip(b' ')
+        load_addr = int.from_bytes(image[8:10], 'little')
+        size = int.from_bytes(image[10:12], 'little')
+        data = image[cls.HEADER_SIZE:cls.HEADER_SIZE + size]
+        if len(data) < size:
+            raise ValueError(f'the ORDOS header says {size} bytes of '
+                             f'data, but the file has only {len(data)}')
+        return cls(name, load_addr, data)
+
+    def to_record(self) -> bytes:
+        '''Assemble the record that stores the file on a disk.'''
+        return (self.name.ljust(self.NAME_SIZE)
+                + self.load_addr.to_bytes(2, 'little')
+                + len(self.data).to_bytes(2, 'little')
+                + bytes(4)
+                + self.data)
 
 
 # The mixin expects to be combined with a z80 machine class. This declares
@@ -239,22 +274,17 @@ class Orion128MachineMixin(_MachineBase):
         self.__romdisk_addr = 0
         self.set_memory_block(ROMDISK_PORT, bytes([romdisk[0]]))
 
-    def load_ram_disk(self, files: list[bytes]) -> None:
-        '''Fill the RAM-disk (drive B:, page 1) with ORDOS file records.
+    def load_ram_disk(self, files: list[ORDOSFile]) -> None:
+        '''Fill the RAM-disk (drive B:, page 1) with ORDOS files.
 
-        Each ORDOS file is a record: an 8-byte name, a 2-byte load address,
-        a 2-byte size, four more header bytes, then the data. The records
-        lie end to end and an FF byte closes the directory. ORDOS keeps such
-        a preloaded disk instead of clearing it at start-up.
-
-        The files may be in either stored form: a .ORD holds the whole file
-        length in the size field, a .BRU holds the data length and pads the
-        data out to a block boundary. _to_record normalises both.
+        Each file goes down as its record. The records lie end to end and
+        an FF byte closes the directory. ORDOS keeps such a preloaded disk
+        instead of clearing it at start-up.
         '''
         image = bytearray(PAGED_SIZE)
         offset = 0
-        for data in files:
-            record = _to_record(data)
+        for file in files:
+            record = file.to_record()
             # Leave room for the record and the FF terminator after it.
             if offset + len(record) + 1 > PAGED_SIZE:
                 raise ValueError(

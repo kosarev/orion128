@@ -109,24 +109,26 @@ def test_keyboard() -> None:
     assert machine.memory[0x1000] == 0xf7
 
 
-def test_ordos_record_formats() -> None:
-    from orion128._machine import _to_record
-    header = b'FILE    ' + (0x100).to_bytes(2, 'little')
+def test_ordos_file() -> None:
+    import pytest
 
-    # A .ORD file: the size field is the whole file length.
-    ord_file = header + (24).to_bytes(2, 'little') + bytes(4) + b'12345678'
-    record = _to_record(ord_file)
-    assert len(record) == 24
-    assert (record[10] | (record[11] << 8)) == 8
-    assert record[16:] == b'12345678'
+    header = (b'FILE    ' + (0x100).to_bytes(2, 'little')
+              + (8).to_bytes(2, 'little') + bytes(4))
+    record = header + b'12345678'
 
-    # A .BRU file: the size field is the data length, with block padding.
-    bru_file = (header + (8).to_bytes(2, 'little') + bytes(4)
-                + b'12345678' + bytes(40))
-    record = _to_record(bru_file)
-    assert len(record) == 24
-    assert (record[10] | (record[11] << 8)) == 8
-    assert record[16:] == b'12345678'
+    # A record parses into its fields and assembles back, and disk padding
+    # after the data is dropped.
+    file = orion128.ORDOSFile.parse(record + bytes(40))
+    assert file.name == b'FILE'
+    assert file.load_addr == 0x100
+    assert file.data == b'12345678'
+    assert file.to_record() == record
+
+    # A file too short for its header is rejected, not trimmed to fit.
+    with pytest.raises(ValueError, match='has only 7'):
+        orion128.ORDOSFile.parse(header + b'1234567')
+    with pytest.raises(ValueError, match='shorter than'):
+        orion128.ORDOSFile.parse(header[:12])
 
 
 def test_reset() -> None:
@@ -151,8 +153,7 @@ def test_ram_disk() -> None:
     monitor = code + bytes(orion128.MONITOR_SIZE - len(code))
     machine = orion128.Orion128Machine(monitor)
 
-    record = b'HELLO   ' + bytes([0x00, 0x10, 0x08, 0x00, 0, 0, 0, 0])
-    machine.load_ram_disk([record])
+    machine.load_ram_disk([orion128.ORDOSFile(b'HELLO', 0x1000, b'')])
     machine.ticks_to_stop = 1000
     machine.run()
     assert machine.memory[0xf000] == ord('H')
