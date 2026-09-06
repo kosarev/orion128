@@ -66,6 +66,11 @@ def _parse_args(
     return rk86, z80, monitor, romdisk, files
 
 
+class _UsageError(Exception):
+    '''A command called with the wrong arguments. The message is the
+    usage text, printed as it is.'''
+
+
 def _take_user(args: list[str]) -> int | None:
     '''Remove a '--user N' option from the arguments and return N, or
     None when there is none.'''
@@ -102,7 +107,7 @@ def _dir(args: list[str]) -> None:
     given, the user number is left out.'''
     user = _take_user(args)
     if len(args) != 1:
-        raise ValueError('usage: orion128 dir IMAGE [--user N]')
+        raise _UsageError('usage: orion128 dir IMAGE [--user N]')
     for entry in _read_disk(Path(args[0])).files.entries(user):
         columns = [entry.name, str(entry.size)]
         if user is None:
@@ -113,7 +118,7 @@ def _dir(args: list[str]) -> None:
 def _era(args: list[str]) -> None:
     user = _take_user(args) or 0
     if len(args) < 2:
-        raise ValueError('usage: orion128 era IMAGE NAME... [--user N]')
+        raise _UsageError('usage: orion128 era IMAGE NAME... [--user N]')
     path = Path(args[0])
     disk = _read_disk(path)
     for name in args[1:]:
@@ -126,8 +131,8 @@ def _save(args: list[str]) -> None:
     image is the disk, the other is the host.'''
     user = _take_user(args) or 0
     if len(args) < 2:
-        raise ValueError('usage: orion128 save IMAGE FILE... [--user N]\n'
-                         '       orion128 save NAME... IMAGE [--user N]')
+        raise _UsageError('usage: orion128 save IMAGE FILE... [--user N]\n'
+                          '       orion128 save NAME... IMAGE [--user N]')
     first, last = Path(args[0]), Path(args[-1])
 
     if _is_disk_image_file(first) and not _is_disk_image_file(last):
@@ -156,7 +161,7 @@ def _format(args: list[str]) -> None:
             raise ValueError('--tracks needs a number')
         tracks = int(args.pop(at))
     if len(args) != 1:
-        raise ValueError('usage: orion128 format IMAGE [--tracks N]')
+        raise _UsageError('usage: orion128 format IMAGE [--tracks N]')
     _write_new_file(Path(args[0]), blank_disk(tracks))
 
 
@@ -164,7 +169,7 @@ def _sysgen(args: list[str]) -> None:
     '''Copy the system tracks. Either end is an image or a plain file
     holding just the tracks, so they can be extracted and installed.'''
     if len(args) != 2:
-        raise ValueError('usage: orion128 sysgen SOURCE DESTINATION')
+        raise _UsageError('usage: orion128 sysgen SOURCE DESTINATION')
     source, destination = Path(args[0]), Path(args[1])
 
     if _is_disk_image_file(source):
@@ -191,6 +196,8 @@ def run_command(command: str, args: list[str]) -> None:
     on any error.'''
     try:
         _COMMANDS[command](list(args))
+    except _UsageError as e:
+        sys.exit(str(e))
     except (cpm80.Error, ValueError, OSError) as e:
         sys.exit(f'orion128: {e}')
 
