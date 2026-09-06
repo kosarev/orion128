@@ -66,10 +66,11 @@ def _parse_args(
     return rk86, z80, monitor, romdisk, files
 
 
-def _take_user(args: list[str]) -> int:
-    '''Remove a '--user N' option from the arguments and return N.'''
+def _take_user(args: list[str]) -> int | None:
+    '''Remove a '--user N' option from the arguments and return N, or
+    None when there is none.'''
     if '--user' not in args:
-        return 0
+        return None
     at = args.index('--user')
     del args[at]
     if at == len(args):
@@ -95,15 +96,25 @@ def _is_disk_image_file(path: Path) -> bool:
 
 
 def _dir(args: list[str]) -> None:
+    '''List the files of every user area, grouped by user, so a file in
+    another user area is never overlooked. With a user given, just that
+    user's names.'''
     user = _take_user(args)
     if len(args) != 1:
         raise ValueError('usage: orion128 dir IMAGE [--user N]')
-    for name in _read_disk(Path(args[0])).files.names(user):
-        print(name)
+    files = _read_disk(Path(args[0])).files
+    if user is not None:
+        for name in files.names(user):
+            print(name)
+        return
+    for user in files.users():
+        print(f'User {user}:')
+        for name in files.names(user):
+            print(f'  {name}')
 
 
 def _era(args: list[str]) -> None:
-    user = _take_user(args)
+    user = _take_user(args) or 0
     if len(args) < 2:
         raise ValueError('usage: orion128 era IMAGE NAME... [--user N]')
     path = Path(args[0])
@@ -116,7 +127,7 @@ def _era(args: list[str]) -> None:
 def _save(args: list[str]) -> None:
     '''Copy files onto the disk image or off it: whichever end is the
     image is the disk, the other is the host.'''
-    user = _take_user(args)
+    user = _take_user(args) or 0
     if len(args) < 2:
         raise ValueError('usage: orion128 save IMAGE FILE... [--user N]\n'
                          '       orion128 save NAME... IMAGE [--user N]')

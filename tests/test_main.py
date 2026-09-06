@@ -26,7 +26,11 @@ def test_file_commands(tmp_path: Path, capsys: pytest.CaptureFixture[str],
     run_command('save', [str(image), str(one)])
     run_command('save', [str(image), str(two), '--user', '1'])
 
+    # The listing covers every user area by default.
     run_command('dir', [str(image)])
+    assert capsys.readouterr().out == (
+        'User 0:\n  ONE.TXT\nUser 1:\n  TWO.COM\n')
+    run_command('dir', [str(image), '--user', '0'])
     assert capsys.readouterr().out == 'ONE.TXT\n'
     run_command('dir', [str(image), '--user', '1'])
     assert capsys.readouterr().out == 'TWO.COM\n'
@@ -49,7 +53,7 @@ def test_file_commands(tmp_path: Path, capsys: pytest.CaptureFixture[str],
         run_command('save', ['one.txt', 'two.com'])
 
     run_command('era', [str(image), 'one.txt'])
-    run_command('dir', [str(image)])
+    run_command('dir', [str(image), '--user', '0'])
     assert capsys.readouterr().out == ''
 
     with pytest.raises(SystemExit, match='already exists'):

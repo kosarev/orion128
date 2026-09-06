@@ -46,7 +46,8 @@ are.
 Disk images can also be worked on from the host:
 
 ```shell
-orion128 dir work.odi              # list the files (--user N for a user area)
+orion128 dir work.odi              # list the files of every user area
+orion128 dir work.odi --user 1     # just one user area's
 orion128 save work.odi HELLO.COM   # put host files on the disk
 orion128 save HELLO.COM work.odi   # take files off the disk
 orion128 era work.odi HELLO.COM    # delete files
