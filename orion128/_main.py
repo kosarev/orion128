@@ -292,6 +292,8 @@ def main() -> None:
     disks = []
     ordos_paths = []
     for path in files:
+        if not path.is_file():
+            sys.exit(f'orion128: {path}: no such file')
         if path.suffix.lower() in ('.ord', '.bru'):
             ordos_paths.append(path)
         elif is_disk_image(path.stat().st_size):
@@ -309,9 +311,12 @@ def main() -> None:
             sys.exit(f'orion128: {path}: {e}')
 
     machine = Orion128Z80Machine() if z80 else Orion128Machine()
-    machine.load_monitor(monitor.read_bytes())
-    machine.load_romdisk(romdisk.read_bytes())
-    machine.mount_disks([path.read_bytes() for path in disks])
+    try:
+        machine.load_monitor(monitor.read_bytes())
+        machine.load_romdisk(romdisk.read_bytes())
+        machine.mount_disks([path.read_bytes() for path in disks])
+    except OSError as e:
+        sys.exit(f'orion128: {e.filename}: {e.strerror}')
     if ordos_files:
         machine.load_ram_disk(ordos_files)
 

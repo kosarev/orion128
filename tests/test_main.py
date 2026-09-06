@@ -29,6 +29,11 @@ def test_help(capsys: pytest.CaptureFixture[str],
     with pytest.raises(SystemExit, match='^usage: orion128 dir IMAGE'):
         run_command('dir', [])
 
+    # A file argument that is not there is reported, not a traceback.
+    monkeypatch.setattr('sys.argv', ['orion128', 'ren'])
+    with pytest.raises(SystemExit, match='ren: no such file'):
+        main()
+
 
 def test_file_commands(tmp_path: Path, capsys: pytest.CaptureFixture[str],
                        monkeypatch: pytest.MonkeyPatch) -> None:
