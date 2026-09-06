@@ -27,13 +27,13 @@ def test_file_commands(tmp_path: Path, capsys: pytest.CaptureFixture[str],
     run_command('save', [str(image), str(two), '--user', '1'])
 
     # The listing covers every user area by default, a line per file
-    # with the user number first.
+    # with the user number, the name and the size in bytes.
     run_command('dir', [str(image)])
-    assert capsys.readouterr().out == '0 ONE.TXT\n1 TWO.COM\n'
+    assert capsys.readouterr().out == '0  ONE.TXT  128\n1  TWO.COM  128\n'
     run_command('dir', [str(image), '--user', '0'])
-    assert capsys.readouterr().out == 'ONE.TXT\n'
+    assert capsys.readouterr().out == 'ONE.TXT  128\n'
     run_command('dir', [str(image), '--user', '1'])
-    assert capsys.readouterr().out == 'TWO.COM\n'
+    assert capsys.readouterr().out == 'TWO.COM  128\n'
 
     # Saving again replaces the file rather than failing.
     one.write_bytes(b'again')

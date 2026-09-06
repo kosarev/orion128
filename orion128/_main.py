@@ -97,19 +97,17 @@ def _is_disk_image_file(path: Path) -> bool:
 
 def _dir(args: list[str]) -> None:
     '''List the files of every user area, a line per file with the user
-    number and the name, so a file in another user area is never
-    overlooked and a script can pick lines apart. With a user given,
-    just that user's names.'''
+    number, the name and the size, so a file in another user area is
+    never overlooked and a script can pick lines apart. With a user
+    given, the user number is left out.'''
     user = _take_user(args)
     if len(args) != 1:
         raise ValueError('usage: orion128 dir IMAGE [--user N]')
-    files = _read_disk(Path(args[0])).files
-    if user is not None:
-        for name in files.names(user):
-            print(name)
-        return
-    for user, name in files.entries():
-        print(user, name)
+    for entry in _read_disk(Path(args[0])).files.entries(user):
+        columns = [entry.name, str(entry.size)]
+        if user is None:
+            columns.insert(0, str(entry.user))
+        print('  '.join(columns))
 
 
 def _era(args: list[str]) -> None:
