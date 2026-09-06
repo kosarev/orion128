@@ -23,7 +23,7 @@ def test_help(capsys: pytest.CaptureFixture[str],
         assert out.startswith('Orion-128 home computer emulator.\nusage:')
         # Every disk image command has its usage line in the help.
         for command in ('dir', 'save', 'ren', 'era', 'format', 'sysgen',
-                        'split'):
+                        'split', 'strip'):
             assert f'orion128 {command} ' in out
 
     # A usage error prints just the command's usage line.
@@ -163,3 +163,27 @@ def test_split(tmp_path: Path) -> None:
     # The directory must be empty, or not there yet.
     with pytest.raises(SystemExit, match='not an empty directory'):
         run_command('split', [str(image), str(parts)])
+
+
+def test_strip(tmp_path: Path) -> None:
+    header = b'PROG$   ' + (0x100).to_bytes(2, 'little') + (4).to_bytes(
+        2, 'little')
+    # Two saves of one program: different junk in the header, different
+    # padding after the data.
+    one = tmp_path / 'one.BRU'
+    one.write_bytes(header + b'junk' + b'code' + b'\xe5' * 100)
+    two = tmp_path / 'two.ORD'
+    two.write_bytes(header + b'more' + b'code' + b'\x1a' * 20)
+    run_command('strip', [str(one), str(two)])
+
+    canonical = header + bytes(4) + b'code'
+    assert (tmp_path / 'one.ORD').read_bytes() == canonical
+    assert two.read_bytes() == canonical   # rewritten in place
+    assert one.read_bytes() != canonical   # the .BRU is left as it was
+
+    with pytest.raises(SystemExit, match='one.ORD: already exists'):
+        run_command('strip', [str(one)])
+    bad = tmp_path / 'bad.BRU'
+    bad.write_bytes(header[:12])
+    with pytest.raises(SystemExit, match='bad.BRU: shorter than'):
+        run_command('strip', [str(bad)])

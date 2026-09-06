@@ -57,6 +57,7 @@ orion128 sysgen system.odi work.odi   # copy the system tracks
 orion128 sysgen system.odi osdos.sys  # extract them to a file
 orion128 sysgen osdos.sys work.odi    # install them from a file
 orion128 split work.odi parts/     # take the image apart, erased files too
+orion128 strip PENX4$.BRU          # write the canonical PENX4$.ORD
 ```
 
 `split` writes every byte of the image into a directory: the system tracks,

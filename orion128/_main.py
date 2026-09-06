@@ -81,6 +81,7 @@ _USAGE = {
     'era': ['orion128 era IMAGE NAME... [--user N]'],
     'format': ['orion128 format IMAGE [--tracks N]'],
     'split': ['orion128 split IMAGE DIRECTORY'],
+    'strip': ['orion128 strip ORDOS_FILE...'],
     'sysgen': ['orion128 sysgen SOURCE_IMAGE DESTINATION_IMAGE',
                'orion128 sysgen IMAGE FILE',
                'orion128 sysgen FILE IMAGE'],
@@ -127,6 +128,10 @@ _HELP = '\n'.join([
     '          erased files with their taken-over blocks filled in, the',
     '          unallocated blocks holding data, and a report of it all,',
     '          for recovering erased files by hand.',
+    '  strip   Write ORDOS files in their canonical form, NAME.ORD next to',
+    '          each, or in place for a .ORD: the unused header bytes',
+    '          zeroed and the padding after the data dropped, so copies of',
+    '          one file are byte-identical.',
 ])
 
 
@@ -299,11 +304,30 @@ def _split(args: list[str]) -> None:
     write('report.txt', data=report.encode())
 
 
-# The disk image commands, named after their CP/M counterparts, and split,
-# which has none. They work on an image from the host, without the
-# machine.
+def _strip(args: list[str]) -> None:
+    '''Write stored ORDOS files in their canonical form, NAME.ORD next
+    to each: the header's unused bytes zeroed and the padding after the
+    data dropped, so two copies of one file are byte-identical. A file
+    already named .ORD is rewritten in place.'''
+    if not args:
+        raise _usage('strip')
+    for path in map(Path, args):
+        try:
+            file = ORDOSFile.parse(path.read_bytes())
+        except ValueError as e:
+            raise ValueError(f'{path}: {e}')
+        if path.suffix.lower() == '.ord':
+            path.write_bytes(file.to_record())
+        else:
+            _write_new_file(path.with_suffix('.ORD'), file.to_record())
+
+
+# The disk image commands, named after their CP/M counterparts, and split
+# and strip, which have none. They work on an image or a file from the
+# host, without the machine.
 _COMMANDS = {'dir': _dir, 'save': _save, 'ren': _ren, 'era': _era,
-             'format': _format, 'sysgen': _sysgen, 'split': _split}
+             'format': _format, 'sysgen': _sysgen, 'split': _split,
+             'strip': _strip}
 
 
 def run_command(command: str, args: list[str]) -> None:
