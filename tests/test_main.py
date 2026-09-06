@@ -23,8 +23,8 @@ def test_file_commands(tmp_path: Path, capsys: pytest.CaptureFixture[str],
     one.write_bytes(b'one')
     two = tmp_path / 'two.com'
     two.write_bytes(b'two')
-    run_command('save', [str(image), str(one)])
-    run_command('save', [str(image), str(two), '--user', '1'])
+    run_command('save', [str(one), str(image)])
+    run_command('save', [str(two), str(image), '--user', '1'])
 
     # The listing covers every user area by default, a line per file
     # with the user number, the name and the size in bytes.
@@ -37,18 +37,18 @@ def test_file_commands(tmp_path: Path, capsys: pytest.CaptureFixture[str],
 
     # Saving again replaces the file rather than failing.
     one.write_bytes(b'again')
-    run_command('save', [str(image), str(one)])
+    run_command('save', [str(one), str(image)])
     disk = DiskImage(image.read_bytes())
     assert disk.files.read('one.txt').startswith(b'again')
 
-    # With the image last, the files come off the disk into the current
+    # With the image first, the files come off the disk into the current
     # directory, and never over an existing host file.
     monkeypatch.chdir(tmp_path)
     two.unlink()
-    run_command('save', ['two.com', str(image), '--user', '1'])
+    run_command('save', [str(image), 'two.com', '--user', '1'])
     assert two.read_bytes().startswith(b'two')
     with pytest.raises(SystemExit, match='already exists'):
-        run_command('save', ['one.txt', str(image)])
+        run_command('save', [str(image), 'one.txt'])
     with pytest.raises(SystemExit, match='one end of save'):
         run_command('save', ['one.txt', 'two.com'])
 
@@ -82,7 +82,7 @@ def test_sysgen(tmp_path: Path) -> None:
     run_command('format', [str(destination), '--tracks', '82'])
     mine = tmp_path / 'mine.txt'
     mine.write_bytes(b'mine')
-    run_command('save', [str(destination), str(mine)])
+    run_command('save', [str(mine), str(destination)])
     run_command('sysgen', [str(tracks), str(destination)])
     disk = DiskImage(destination.read_bytes())
     assert disk.system_tracks == system

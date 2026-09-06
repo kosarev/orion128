@@ -127,26 +127,27 @@ def _era(args: list[str]) -> None:
 
 
 def _save(args: list[str]) -> None:
-    '''Copy files onto the disk image or off it: whichever end is the
-    image is the disk, the other is the host.'''
+    '''Copy files onto the disk image or off it, source first as with
+    cp: the image last is the destination, the image first the source,
+    with the current directory as the destination.'''
     user = _take_user(args) or 0
     if len(args) < 2:
-        raise _UsageError('usage: orion128 save IMAGE FILE... [--user N]\n'
-                          '       orion128 save NAME... IMAGE [--user N]')
+        raise _UsageError('usage: orion128 save FILE... IMAGE [--user N]\n'
+                          '       orion128 save IMAGE NAME... [--user N]')
     first, last = Path(args[0]), Path(args[-1])
 
-    if _is_disk_image_file(first) and not _is_disk_image_file(last):
-        disk = _read_disk(first)
+    if _is_disk_image_file(last) and not _is_disk_image_file(first):
+        disk = _read_disk(last)
         present = {name.lower() for name in disk.files.names(user)}
-        for file in map(Path, args[1:]):
+        for file in map(Path, args[:-1]):
             # A file already on the disk under the name is replaced.
             if file.name.lower() in present:
                 disk.files.delete(file.name, user)
             disk.files.write(file.name, file.read_bytes(), user)
-        first.write_bytes(bytes(disk))
-    elif _is_disk_image_file(last) and not _is_disk_image_file(first):
-        disk = _read_disk(last)
-        for name in args[:-1]:
+        last.write_bytes(bytes(disk))
+    elif _is_disk_image_file(first) and not _is_disk_image_file(last):
+        disk = _read_disk(first)
+        for name in args[1:]:
             _write_new_file(Path(name), disk.files.read(name, user))
     else:
         raise ValueError('one end of save must be the disk image')
