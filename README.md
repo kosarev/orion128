@@ -43,6 +43,18 @@ manager copies files to and from disks, and CP/M boots from a system disk.
 Changes to a disk are kept in memory, so your image files are left as they
 are.
 
+Disk images can also be worked on from the host:
+
+```shell
+orion128 dir work.odi              # list the files (--user N for a user area)
+orion128 save work.odi HELLO.COM   # put host files on the disk
+orion128 era work.odi HELLO.COM    # delete files
+orion128 format work.odi           # make a blank disk (--tracks 82 for 820K)
+orion128 sysgen system.odi work.odi   # copy the system tracks
+orion128 sysgen system.odi osdos.sys  # extract them to a file
+orion128 sysgen osdos.sys work.odi    # install them from a file
+```
+
 <kbd>F12</kbd> is the RESET button. <kbd>F10</kbd> closes the emulator.
 
 Each PC key is mapped to the Orion key that gives the same character, so

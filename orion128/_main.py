@@ -10,6 +10,9 @@ import sys
 import time
 from pathlib import Path
 
+import cpm80
+
+from ._disk import DEFAULT_TRACKS, DiskImage, blank_disk
 from ._display import Display
 from ._floppy import is_disk_image
 from ._keyboard import MS7007, RK86
@@ -63,6 +66,112 @@ def _parse_args(
     return rk86, z80, monitor, romdisk, files
 
 
+def _take_user(args: list[str]) -> int:
+    '''Remove a '--user N' option from the arguments and return N.'''
+    if '--user' not in args:
+        return 0
+    at = args.index('--user')
+    del args[at]
+    if at == len(args):
+        raise ValueError('--user needs a number')
+    return int(args.pop(at))
+
+
+def _read_disk(path: Path) -> DiskImage:
+    try:
+        return DiskImage(path.read_bytes())
+    except ValueError as e:
+        raise ValueError(f'{path}: {e}')
+
+
+def _write_new_file(path: Path, data: bytes) -> None:
+    if path.exists():
+        raise ValueError(f'{path}: already exists')
+    path.write_bytes(data)
+
+
+def _dir(args: list[str]) -> None:
+    user = _take_user(args)
+    if len(args) != 1:
+        raise ValueError('usage: orion128 dir IMAGE [--user N]')
+    for name in _read_disk(Path(args[0])).files.names(user):
+        print(name)
+
+
+def _era(args: list[str]) -> None:
+    user = _take_user(args)
+    if len(args) < 2:
+        raise ValueError('usage: orion128 era IMAGE NAME... [--user N]')
+    path = Path(args[0])
+    disk = _read_disk(path)
+    for name in args[1:]:
+        disk.files.delete(name, user)
+    path.write_bytes(bytes(disk))
+
+
+def _save(args: list[str]) -> None:
+    user = _take_user(args)
+    if len(args) < 2:
+        raise ValueError('usage: orion128 save IMAGE FILE... [--user N]')
+    path = Path(args[0])
+    disk = _read_disk(path)
+    present = {name.lower() for name in disk.files.names(user)}
+    for file in map(Path, args[1:]):
+        # A file already there under the name is replaced.
+        if file.name.lower() in present:
+            disk.files.delete(file.name, user)
+        disk.files.write(file.name, file.read_bytes(), user)
+    path.write_bytes(bytes(disk))
+
+
+def _format(args: list[str]) -> None:
+    tracks = DEFAULT_TRACKS
+    if '--tracks' in args:
+        at = args.index('--tracks')
+        del args[at]
+        if at == len(args):
+            raise ValueError('--tracks needs a number')
+        tracks = int(args.pop(at))
+    if len(args) != 1:
+        raise ValueError('usage: orion128 format IMAGE [--tracks N]')
+    _write_new_file(Path(args[0]), blank_disk(tracks))
+
+
+def _sysgen(args: list[str]) -> None:
+    '''Copy the system tracks. Either end is an image or a plain file
+    holding just the tracks, so they can be extracted and installed.'''
+    if len(args) != 2:
+        raise ValueError('usage: orion128 sysgen SOURCE DESTINATION')
+    source, destination = Path(args[0]), Path(args[1])
+
+    if is_disk_image(source.stat().st_size):
+        tracks = _read_disk(source).system_tracks
+    else:
+        tracks = source.read_bytes()
+
+    if destination.exists() and is_disk_image(destination.stat().st_size):
+        disk = _read_disk(destination)
+        disk.system_tracks = tracks
+        destination.write_bytes(bytes(disk))
+    else:
+        _write_new_file(destination, tracks)
+
+
+# The disk image commands, named after their CP/M counterparts. They work
+# on an image from the host, without the machine.
+_COMMANDS = {'dir': _dir, 'era': _era, 'save': _save, 'format': _format,
+             'sysgen': _sysgen}
+
+
+def run_command(command: str, args: list[str]) -> None:
+    '''Run a disk image command on its arguments, exiting with a message
+    on any error.'''
+    try:
+        _COMMANDS[command](list(args))
+    except (cpm80.Error, ValueError, OSError) as e:
+        sys.exit(f'orion128: {e}')
+
+
 def main() -> None:
     '''The orion128 command-line entry point.
 
@@ -74,8 +183,17 @@ def main() -> None:
     bundled ROMs. Any further arguments are files: a floppy image goes in
     the drive, an ORDOS file (.ORD or .BRU) is preloaded onto the RAM-disk
     (drive B:).
+
+    Given a disk image command as its first argument (dir, era, save,
+    format or sysgen), it works on the image from the host instead.
     '''
-    rk86, z80, monitor, romdisk, files = _parse_args(sys.argv[1:])
+    args = sys.argv[1:]
+
+    if args and args[0] in _COMMANDS:
+        run_command(args[0], args[1:])
+        return
+
+    rk86, z80, monitor, romdisk, files = _parse_args(args)
 
     if monitor is None:
         monitor = _PACKAGE / ('m2rk86.rom' if rk86 else 'ms7007.rom')
