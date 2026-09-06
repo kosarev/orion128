@@ -11,7 +11,23 @@ from pathlib import Path
 import pytest
 
 from orion128._disk import SYSTEM_TRACKS_SIZE, DiskImage
-from orion128._main import run_command
+from orion128._main import main, run_command
+
+
+def test_help(capsys: pytest.CaptureFixture[str],
+              monkeypatch: pytest.MonkeyPatch) -> None:
+    for option in ('--help', '-h'):
+        monkeypatch.setattr('sys.argv', ['orion128', option])
+        main()
+        out = capsys.readouterr().out
+        assert out.startswith('Orion-128 home computer emulator.\nusage:')
+        # Every disk image command has its usage line in the help.
+        for command in ('dir', 'save', 'era', 'format', 'sysgen'):
+            assert f'orion128 {command} ' in out
+
+    # A usage error prints just the command's usage line.
+    with pytest.raises(SystemExit, match='^usage: orion128 dir IMAGE'):
+        run_command('dir', [])
 
 
 def test_file_commands(tmp_path: Path, capsys: pytest.CaptureFixture[str],

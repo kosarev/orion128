@@ -71,6 +71,57 @@ class _UsageError(Exception):
     usage text, printed as it is.'''
 
 
+# The usage lines, one entry per disk image command, shared by the
+# command's usage error and the help text.
+_USAGE = {
+    'dir': ['orion128 dir IMAGE [--user N]'],
+    'save': ['orion128 save FILE... IMAGE [--user N]',
+             'orion128 save IMAGE NAME... [--user N]'],
+    'era': ['orion128 era IMAGE NAME... [--user N]'],
+    'format': ['orion128 format IMAGE [--tracks N]'],
+    'sysgen': ['orion128 sysgen SOURCE_IMAGE DESTINATION_IMAGE',
+               'orion128 sysgen IMAGE FILE',
+               'orion128 sysgen FILE IMAGE'],
+}
+
+
+def _usage(command: str) -> _UsageError:
+    return _UsageError('usage: ' + '\n       '.join(_USAGE[command]))
+
+
+_HELP = '\n'.join([
+    'Orion-128 home computer emulator.',
+    ('usage: orion128 [--rk86] [--z80] [--monitor PATH] [--romdisk PATH] '
+     '[FILE...]'),
+    '       orion128 --help',
+    *(f'       {line}' for lines in _USAGE.values() for line in lines),
+    '',
+    'Runs the machine and shows its screen until the window is closed. F12',
+    'is the RESET button, F10 closes the emulator.',
+    '  --rk86          The RK-86 keyboard machine, with its own Monitor and',
+    '                  keyboard layout.',
+    '  --z80           Run on the Z80 core, for software that uses Z80',
+    '                  instructions.',
+    '  --monitor PATH  Replace the bundled Monitor ROM.',
+    '  --romdisk PATH  Replace the bundled ORDOS ROM-disk.',
+    '  FILE            A floppy image goes in the next drive (A: to D:). An',
+    '                  ORDOS file (.ORD or .BRU) is preloaded onto the',
+    '                  RAM-disk (drive B:).',
+    '',
+    'The disk image commands work on an image from the host, without the',
+    'machine.',
+    '  dir     List the files: user area, name and size in bytes. With',
+    "          --user, one user area's, without the user column.",
+    '  save    Copy host files onto the disk, or files off the disk into',
+    '          the current directory. Files on the disk are replaced, files',
+    '          on the host never overwritten.',
+    '  era     Delete files.',
+    '  format  Make a blank disk of 80 tracks, or of N.',
+    '  sysgen  Copy the system tracks from one disk to another, extract',
+    '          them to a plain file, or install them from one.',
+])
+
+
 def _take_user(args: list[str]) -> int | None:
     '''Remove a '--user N' option from the arguments and return N, or
     None when there is none.'''
@@ -107,7 +158,7 @@ def _dir(args: list[str]) -> None:
     given, the user number is left out.'''
     user = _take_user(args)
     if len(args) != 1:
-        raise _UsageError('usage: orion128 dir IMAGE [--user N]')
+        raise _usage('dir')
     for entry in _read_disk(Path(args[0])).files.entries(user):
         columns = [entry.name, str(entry.size)]
         if user is None:
@@ -118,7 +169,7 @@ def _dir(args: list[str]) -> None:
 def _era(args: list[str]) -> None:
     user = _take_user(args) or 0
     if len(args) < 2:
-        raise _UsageError('usage: orion128 era IMAGE NAME... [--user N]')
+        raise _usage('era')
     path = Path(args[0])
     disk = _read_disk(path)
     for name in args[1:]:
@@ -132,8 +183,7 @@ def _save(args: list[str]) -> None:
     with the current directory as the destination.'''
     user = _take_user(args) or 0
     if len(args) < 2:
-        raise _UsageError('usage: orion128 save FILE... IMAGE [--user N]\n'
-                          '       orion128 save IMAGE NAME... [--user N]')
+        raise _usage('save')
     first, last = Path(args[0]), Path(args[-1])
 
     if _is_disk_image_file(last) and not _is_disk_image_file(first):
@@ -162,7 +212,7 @@ def _format(args: list[str]) -> None:
             raise ValueError('--tracks needs a number')
         tracks = int(args.pop(at))
     if len(args) != 1:
-        raise _UsageError('usage: orion128 format IMAGE [--tracks N]')
+        raise _usage('format')
     _write_new_file(Path(args[0]), blank_disk(tracks))
 
 
@@ -170,7 +220,7 @@ def _sysgen(args: list[str]) -> None:
     '''Copy the system tracks. Either end is an image or a plain file
     holding just the tracks, so they can be extracted and installed.'''
     if len(args) != 2:
-        raise _UsageError('usage: orion128 sysgen SOURCE DESTINATION')
+        raise _usage('sysgen')
     source, destination = Path(args[0]), Path(args[1])
 
     if _is_disk_image_file(source):
@@ -219,6 +269,10 @@ def main() -> None:
     format or sysgen), it works on the image from the host instead.
     '''
     args = sys.argv[1:]
+
+    if args and args[0] in ('--help', '-h'):
+        print(_HELP)
+        return
 
     if args and args[0] in _COMMANDS:
         run_command(args[0], args[1:])
