@@ -90,6 +90,10 @@ def _write_new_file(path: Path, data: bytes) -> None:
     path.write_bytes(data)
 
 
+def _is_disk_image_file(path: Path) -> bool:
+    return path.is_file() and is_disk_image(path.stat().st_size)
+
+
 def _dir(args: list[str]) -> None:
     user = _take_user(args)
     if len(args) != 1:
@@ -110,18 +114,29 @@ def _era(args: list[str]) -> None:
 
 
 def _save(args: list[str]) -> None:
+    '''Copy files onto the disk image or off it: whichever end is the
+    image is the disk, the other is the host.'''
     user = _take_user(args)
     if len(args) < 2:
-        raise ValueError('usage: orion128 save IMAGE FILE... [--user N]')
-    path = Path(args[0])
-    disk = _read_disk(path)
-    present = {name.lower() for name in disk.files.names(user)}
-    for file in map(Path, args[1:]):
-        # A file already there under the name is replaced.
-        if file.name.lower() in present:
-            disk.files.delete(file.name, user)
-        disk.files.write(file.name, file.read_bytes(), user)
-    path.write_bytes(bytes(disk))
+        raise ValueError('usage: orion128 save IMAGE FILE... [--user N]\n'
+                         '       orion128 save NAME... IMAGE [--user N]')
+    first, last = Path(args[0]), Path(args[-1])
+
+    if _is_disk_image_file(first) and not _is_disk_image_file(last):
+        disk = _read_disk(first)
+        present = {name.lower() for name in disk.files.names(user)}
+        for file in map(Path, args[1:]):
+            # A file already on the disk under the name is replaced.
+            if file.name.lower() in present:
+                disk.files.delete(file.name, user)
+            disk.files.write(file.name, file.read_bytes(), user)
+        first.write_bytes(bytes(disk))
+    elif _is_disk_image_file(last) and not _is_disk_image_file(first):
+        disk = _read_disk(last)
+        for name in args[:-1]:
+            _write_new_file(Path(name), disk.files.read(name, user))
+    else:
+        raise ValueError('one end of save must be the disk image')
 
 
 def _format(args: list[str]) -> None:
@@ -144,12 +159,12 @@ def _sysgen(args: list[str]) -> None:
         raise ValueError('usage: orion128 sysgen SOURCE DESTINATION')
     source, destination = Path(args[0]), Path(args[1])
 
-    if is_disk_image(source.stat().st_size):
+    if _is_disk_image_file(source):
         tracks = _read_disk(source).system_tracks
     else:
         tracks = source.read_bytes()
 
-    if destination.exists() and is_disk_image(destination.stat().st_size):
+    if _is_disk_image_file(destination):
         disk = _read_disk(destination)
         disk.system_tracks = tracks
         destination.write_bytes(bytes(disk))

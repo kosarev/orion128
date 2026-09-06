@@ -14,8 +14,8 @@ from orion128._disk import SYSTEM_TRACKS_SIZE, DiskImage
 from orion128._main import run_command
 
 
-def test_file_commands(tmp_path: Path,
-                       capsys: pytest.CaptureFixture[str]) -> None:
+def test_file_commands(tmp_path: Path, capsys: pytest.CaptureFixture[str],
+                       monkeypatch: pytest.MonkeyPatch) -> None:
     image = tmp_path / 'disk.odi'
     run_command('format', [str(image)])
 
@@ -36,6 +36,17 @@ def test_file_commands(tmp_path: Path,
     run_command('save', [str(image), str(one)])
     disk = DiskImage(image.read_bytes())
     assert disk.files.read('one.txt').startswith(b'again')
+
+    # With the image last, the files come off the disk into the current
+    # directory, and never over an existing host file.
+    monkeypatch.chdir(tmp_path)
+    two.unlink()
+    run_command('save', ['two.com', str(image), '--user', '1'])
+    assert two.read_bytes().startswith(b'two')
+    with pytest.raises(SystemExit, match='already exists'):
+        run_command('save', ['one.txt', str(image)])
+    with pytest.raises(SystemExit, match='one end of save'):
+        run_command('save', ['one.txt', 'two.com'])
 
     run_command('era', [str(image), 'one.txt'])
     run_command('dir', [str(image)])
