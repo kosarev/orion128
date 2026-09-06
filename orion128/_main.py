@@ -86,10 +86,10 @@ def main() -> None:
     # .ORD/.BRU name is always an ORDOS file, never a disk. The disk images
     # fill the drives in the order given (A, B, C, D).
     disks = []
-    ords = []
+    ordos_files = []
     for path in files:
         if path.suffix.lower() in ('.ord', '.bru'):
-            ords.append(path)
+            ordos_files.append(path)
         elif is_disk_image(path.stat().st_size):
             disks.append(path)
         else:
@@ -101,8 +101,8 @@ def main() -> None:
     machine.load_monitor(monitor.read_bytes())
     machine.load_romdisk(romdisk.read_bytes())
     machine.mount_disks([path.read_bytes() for path in disks])
-    if ords:
-        machine.load_ram_disk([path.read_bytes() for path in ords])
+    if ordos_files:
+        machine.load_ram_disk([path.read_bytes() for path in ordos_files])
 
     ticks_per_frame = CPU_FREQUENCY // FRAMES_PER_SECOND
     display = Display(keyboard=RK86 if rk86 else MS7007)
