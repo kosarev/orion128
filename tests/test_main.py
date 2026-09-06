@@ -22,7 +22,7 @@ def test_help(capsys: pytest.CaptureFixture[str],
         out = capsys.readouterr().out
         assert out.startswith('Orion-128 home computer emulator.\nusage:')
         # Every disk image command has its usage line in the help.
-        for command in ('dir', 'save', 'era', 'format', 'sysgen'):
+        for command in ('dir', 'save', 'ren', 'era', 'format', 'sysgen'):
             assert f'orion128 {command} ' in out
 
     # A usage error prints just the command's usage line.
@@ -30,8 +30,8 @@ def test_help(capsys: pytest.CaptureFixture[str],
         run_command('dir', [])
 
     # A file argument that is not there is reported, not a traceback.
-    monkeypatch.setattr('sys.argv', ['orion128', 'ren'])
-    with pytest.raises(SystemExit, match='ren: no such file'):
+    monkeypatch.setattr('sys.argv', ['orion128', 'nothere'])
+    with pytest.raises(SystemExit, match='nothere: no such file'):
         main()
 
 
@@ -72,6 +72,15 @@ def test_file_commands(tmp_path: Path, capsys: pytest.CaptureFixture[str],
         run_command('save', [str(image), 'one.txt'])
     with pytest.raises(SystemExit, match='one end of save'):
         run_command('save', ['one.txt', 'two.com'])
+
+    # Renaming takes CP/M's NEW=OLD form, within the user area.
+    run_command('ren', [str(image), 'three.com=two.com', '--user', '1'])
+    run_command('dir', [str(image), '--user', '1'])
+    assert capsys.readouterr().out == 'THREE.COM  128\n'
+    with pytest.raises(SystemExit, match='file not found'):
+        run_command('ren', [str(image), 'four.com=two.com'])
+    with pytest.raises(SystemExit, match='^usage: orion128 ren'):
+        run_command('ren', [str(image), 'two.com', 'four.com'])
 
     run_command('era', [str(image), 'one.txt'])
     run_command('dir', [str(image), '--user', '0'])

@@ -50,6 +50,7 @@ orion128 dir work.odi              # list the files of every user area
 orion128 dir work.odi --user 1     # just one user area's
 orion128 save HELLO.COM work.odi   # put host files on the disk
 orion128 save work.odi HELLO.COM   # take files off the disk
+orion128 ren work.odi HI.COM=HELLO.COM   # rename a file, NEW=OLD
 orion128 era work.odi HELLO.COM    # delete files
 orion128 format work.odi           # make a blank disk (--tracks 82 for 820K)
 orion128 sysgen system.odi work.odi   # copy the system tracks

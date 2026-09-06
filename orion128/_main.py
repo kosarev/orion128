@@ -77,6 +77,7 @@ _USAGE = {
     'dir': ['orion128 dir IMAGE [--user N]'],
     'save': ['orion128 save FILE... IMAGE [--user N]',
              'orion128 save IMAGE NAME... [--user N]'],
+    'ren': ['orion128 ren IMAGE NEW=OLD [--user N]'],
     'era': ['orion128 era IMAGE NAME... [--user N]'],
     'format': ['orion128 format IMAGE [--tracks N]'],
     'sysgen': ['orion128 sysgen SOURCE_IMAGE DESTINATION_IMAGE',
@@ -115,6 +116,7 @@ _HELP = '\n'.join([
     '  save    Copy host files onto the disk, or files off the disk into',
     '          the current directory. Files on the disk are replaced, files',
     '          on the host never overwritten.',
+    '  ren     Rename a file, NEW=OLD as CP/M has it.',
     '  era     Delete files.',
     '  format  Make a blank disk of 80 tracks, or of N.',
     '  sysgen  Copy the system tracks from one disk to another, extract',
@@ -164,6 +166,18 @@ def _dir(args: list[str]) -> None:
         if user is None:
             columns.insert(0, str(entry.user))
         print('  '.join(columns))
+
+
+def _ren(args: list[str]) -> None:
+    '''Rename a file, in CP/M's own NEW=OLD form.'''
+    user = _take_user(args) or 0
+    if len(args) != 2 or '=' not in args[1]:
+        raise _usage('ren')
+    path = Path(args[0])
+    disk = _read_disk(path)
+    new, _, old = args[1].partition('=')
+    disk.files.rename(old, new, user)
+    path.write_bytes(bytes(disk))
 
 
 def _era(args: list[str]) -> None:
@@ -238,8 +252,8 @@ def _sysgen(args: list[str]) -> None:
 
 # The disk image commands, named after their CP/M counterparts. They work
 # on an image from the host, without the machine.
-_COMMANDS = {'dir': _dir, 'era': _era, 'save': _save, 'format': _format,
-             'sysgen': _sysgen}
+_COMMANDS = {'dir': _dir, 'save': _save, 'ren': _ren, 'era': _era,
+             'format': _format, 'sysgen': _sysgen}
 
 
 def run_command(command: str, args: list[str]) -> None:
