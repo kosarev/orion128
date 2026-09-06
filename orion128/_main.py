@@ -15,7 +15,7 @@ import cpm80
 from ._disk import DEFAULT_TRACKS, DiskImage, blank_disk
 from ._display import Display
 from ._floppy import is_disk_image
-from ._keyboard import MS7007, RK86
+from ._keyboard import MS7007Keyboard, RK86Keyboard
 from ._machine import CPU_FREQUENCY, Orion128Machine, Orion128Z80Machine
 from ._ordos import ORDOSFile
 
@@ -246,7 +246,7 @@ def main() -> None:
         machine.load_ram_disk(ordos_files)
 
     ticks_per_frame = CPU_FREQUENCY // FRAMES_PER_SECOND
-    display = Display(keyboard=RK86 if rk86 else MS7007)
+    display = Display(keyboard=RK86Keyboard() if rk86 else MS7007Keyboard())
     try:
         while not display.closed():
             if display.take_reset():

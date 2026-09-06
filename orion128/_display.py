@@ -6,22 +6,20 @@
 #
 #   Published under the MIT license.
 
+'''The window showing the Orion screen, built on PySDL2.
+
+PySDL2 is imported where it is used, not when this module loads, so the
+package can be imported and the disk image commands run without it.
+'''
+
 import ctypes
 import os
 
 import numpy as np
 import numpy.typing as npt
-import sdl2
 
-from ._keyboard import MS7007, Keyboard
+from ._keyboard import Keyboard, MS7007Keyboard
 from ._machine import SCREEN_HEIGHT, SCREEN_WIDTH
-
-# The RESET key is a hardware button, not a matrix key, so it has its own
-# host key.
-_RESET_KEY = sdl2.SDLK_F12
-
-# F10 closes the emulator, as an alternative to closing the window.
-_QUIT_KEY = sdl2.SDLK_F10
 
 
 class Display:
@@ -32,7 +30,9 @@ class Display:
     '''
 
     def __init__(self, scale: int = 2, title: str = 'Orion-128',
-                 keyboard: Keyboard = MS7007) -> None:
+                 keyboard: Keyboard | None = None) -> None:
+        import sdl2
+
         # On Wayland, use the Wayland driver so the window follows the
         # system display scaling instead of being upscaled by XWayland.
         on_wayland = 'WAYLAND_DISPLAY' in os.environ
@@ -58,13 +58,20 @@ class Display:
             self.__renderer, sdl2.SDL_PIXELFORMAT_RGB24,
             sdl2.SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT)
 
-        self.__keyboard = keyboard
+        # The RESET key is a hardware button, not a matrix key, so it has
+        # its own host key. F10 closes the emulator, as an alternative to
+        # closing the window.
+        self.__reset_key = sdl2.SDLK_F12
+        self.__quit_key = sdl2.SDLK_F10
+
+        self.__keyboard = MS7007Keyboard() if keyboard is None else keyboard
         self.__quit = False
         self.__reset_pressed = False
         self.__keys_down: set[int] = set()
 
     def update(self, frame: npt.NDArray[np.uint8]) -> None:
         '''Show the given SCREEN_HEIGHT by SCREEN_WIDTH RGB frame.'''
+        import sdl2
         frame = np.ascontiguousarray(frame, dtype=np.uint8)
         sdl2.SDL_UpdateTexture(
             self.__texture, None, frame.ctypes.data, SCREEN_WIDTH * 3)
@@ -74,15 +81,16 @@ class Display:
 
     def closed(self) -> bool:
         '''Process window events, then report whether close was requested.'''
+        import sdl2
         event = sdl2.SDL_Event()
         while sdl2.SDL_PollEvent(ctypes.byref(event)) != 0:
             if event.type == sdl2.SDL_QUIT:
                 self.__quit = True
             elif event.type == sdl2.SDL_KEYDOWN:
                 key = int(event.key.keysym.sym)
-                if key == _QUIT_KEY:
+                if key == self.__quit_key:
                     self.__quit = True
-                elif key == _RESET_KEY:
+                elif key == self.__reset_key:
                     self.__reset_pressed = True
                 else:
                     self.__keys_down.add(key)
@@ -101,6 +109,7 @@ class Display:
         return pressed
 
     def close(self) -> None:
+        import sdl2
         sdl2.SDL_DestroyTexture(self.__texture)
         sdl2.SDL_DestroyRenderer(self.__renderer)
         sdl2.SDL_DestroyWindow(self.__window)
