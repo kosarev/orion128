@@ -1,6 +1,21 @@
 # Changelog
 
 
+## 0.1.0
+
+Disk images from the host, built on cpm80's file system:
+
+- Commands named after their CP/M counterparts: `dir` lists every user area at once, a line per file with the user number, name and size; `save` copies files onto a disk or off it, source then destination; `ren`, `era`, `format` and `sysgen` rename, delete, make a blank disk and copy the system tracks between disks or to and from a plain file.
+- `split` takes an image apart into a directory, every byte into a part: the system tracks, the directory, the live files, the erased files with the blocks taken over since filled in, the unallocated blocks holding data, each with a note of what the report says about it. The raw material for recovering erased files by hand.
+- `strip` writes ORDOS files in their canonical form, so two copies of one program are byte-identical.
+- `--help`.
+
+Also:
+
+- A preloaded ORDOS file is checked against its header and a broken one reported, rather than guessed at and quietly trimmed.
+- PySDL2 is imported only when the window opens, so the disk commands run without its start-up warning.
+
+
 ## 0.1.0b3
 
 - Show the README screenshot on PyPI by referencing it with an absolute URL.

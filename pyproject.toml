@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'orion128'
-version = '0.1.0b3'
+version = '0.1.0'
 description = 'Orion-128 home computer emulator'
 readme = 'README.md'
 license = {text = 'MIT'}
