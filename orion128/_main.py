@@ -23,10 +23,10 @@ FRAMES_PER_SECOND = 50
 _PACKAGE = Path(__file__).parent
 
 
-def _take_path(args: list[str], option: str) -> str:
+def _take_path(args: list[str], option: str) -> Path:
     if not args:
         sys.exit(f'orion128: {option} needs a path')
-    return args.pop(0)
+    return Path(args.pop(0))
 
 
 def _parse_args(
@@ -53,9 +53,9 @@ def _parse_args(
         elif option == '--z80':
             z80 = True
         elif option == '--monitor':
-            monitor = Path(_take_path(args, option))
+            monitor = _take_path(args, option)
         elif option == '--romdisk':
-            romdisk = Path(_take_path(args, option))
+            romdisk = _take_path(args, option)
         else:
             sys.exit(f'orion128: unknown option: {option}')
     files = [Path(arg) for arg in args]
