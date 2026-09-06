@@ -20,10 +20,11 @@ Norton Commander (NC.COM) running under CP/M, booted from a disk image:
 ![NC.COM running under CP/M](https://raw.githubusercontent.com/kosarev/orion128/main/nc.png)
 
 It ships with the Monitors for both Orion keyboards, the MS7007 and the
-RK-86, and an ORDOS 4.03 ROM-disk, so it boots a working system out of the
-box:
+RK-86, and an ORDOS 4.03 ROM-disk, so once installed from PyPI it boots a
+working system out of the box:
 
 ```shell
+pip install orion128
 orion128
 ```
 
