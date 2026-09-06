@@ -56,7 +56,14 @@ orion128 format work.odi           # make a blank disk (--tracks 82 for 820K)
 orion128 sysgen system.odi work.odi   # copy the system tracks
 orion128 sysgen system.odi osdos.sys  # extract them to a file
 orion128 sysgen osdos.sys work.odi    # install them from a file
+orion128 split work.odi parts/     # take the image apart, erased files too
 ```
+
+`split` writes every byte of the image into a directory: the system tracks,
+the directory, the live files by user area, the erased files with the
+blocks taken over since filled in, and the unallocated blocks that hold
+data, with a report of what went where. That is the raw material for
+recovering erased files by hand.
 
 <kbd>F12</kbd> is the RESET button. <kbd>F10</kbd> closes the emulator.
 

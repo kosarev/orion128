@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from orion128._disk import SYSTEM_TRACKS_SIZE, DiskImage
+from orion128._disk import DISK_FORMAT, SYSTEM_TRACKS_SIZE, DiskImage
 from orion128._main import main, run_command
 
 
@@ -22,7 +22,8 @@ def test_help(capsys: pytest.CaptureFixture[str],
         out = capsys.readouterr().out
         assert out.startswith('Orion-128 home computer emulator.\nusage:')
         # Every disk image command has its usage line in the help.
-        for command in ('dir', 'save', 'ren', 'era', 'format', 'sysgen'):
+        for command in ('dir', 'save', 'ren', 'era', 'format', 'sysgen',
+                        'split'):
             assert f'orion128 {command} ' in out
 
     # A usage error prints just the command's usage line.
@@ -122,3 +123,43 @@ def test_sysgen(tmp_path: Path) -> None:
     run_command('sysgen', [str(source), str(destination)])
     with pytest.raises(SystemExit, match='already exists'):
         run_command('sysgen', [str(source), str(tracks)])
+
+
+def test_split(tmp_path: Path) -> None:
+    image = tmp_path / 'disk.img'
+    run_command('format', [str(image), '--tracks', '82'])
+    kept = tmp_path / 'kept.txt'
+    kept.write_bytes(b'kept')
+    gone = tmp_path / 'gone.txt'
+    gone.write_bytes(b'gone')
+    run_command('save', [str(kept), str(image)])
+    run_command('save', [str(gone), str(image), '--user', '3'])
+
+    # A CP/M name may hold a slash, as some real disks do. It goes on
+    # before the erase, or it would take the erased slot over.
+    disk = DiskImage(image.read_bytes())
+    disk.files.write('a/b.txt', b'slash')
+    image.write_bytes(bytes(disk))
+    run_command('era', [str(image), 'gone.txt', '--user', '3'])
+
+    parts = tmp_path / 'parts'
+    run_command('split', [str(image), str(parts)])
+    assert (parts / 'system.bin').stat().st_size == SYSTEM_TRACKS_SIZE
+    assert (parts / 'directory.bin').stat().st_size == 4096
+    assert (parts / 'files' / '0' / 'KEPT.TXT').read_bytes().startswith(
+        b'kept')
+    assert (parts / 'files' / '0' / 'A%2FB.TXT').read_bytes().startswith(
+        b'slash')
+    erased, = (parts / 'erased').iterdir()
+    assert erased.name.endswith('-GONE.TXT')
+    assert erased.read_bytes().startswith(b'gone')
+    assert not (parts / 'unallocated').exists()
+    assert (parts / 'beyond-format.bin').stat().st_size == (
+        image.stat().st_size - DISK_FORMAT.disk_size)
+    report = (parts / 'report.txt').read_text()
+    assert 'KEPT.TXT' in report and 'GONE.TXT' in report
+    assert report.endswith('Beyond the format: 22528 bytes\n')
+
+    # The directory must be empty, or not there yet.
+    with pytest.raises(SystemExit, match='not an empty directory'):
+        run_command('split', [str(image), str(parts)])

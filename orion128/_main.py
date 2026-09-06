@@ -12,7 +12,7 @@ from pathlib import Path
 
 import cpm80
 
-from ._disk import DEFAULT_TRACKS, DiskImage, blank_disk
+from ._disk import DEFAULT_TRACKS, DISK_FORMAT, DiskImage, blank_disk
 from ._display import Display
 from ._floppy import is_disk_image
 from ._keyboard import MS7007Keyboard, RK86Keyboard
@@ -80,6 +80,7 @@ _USAGE = {
     'ren': ['orion128 ren IMAGE NEW=OLD [--user N]'],
     'era': ['orion128 era IMAGE NAME... [--user N]'],
     'format': ['orion128 format IMAGE [--tracks N]'],
+    'split': ['orion128 split IMAGE DIRECTORY'],
     'sysgen': ['orion128 sysgen SOURCE_IMAGE DESTINATION_IMAGE',
                'orion128 sysgen IMAGE FILE',
                'orion128 sysgen FILE IMAGE'],
@@ -121,6 +122,11 @@ _HELP = '\n'.join([
     '  format  Make a blank disk of 80 tracks, or of N.',
     '  sysgen  Copy the system tracks from one disk to another, extract',
     '          them to a plain file, or install them from one.',
+    '  split   Take an image apart into an empty directory: the system',
+    '          tracks, the directory, the live files by user area, the',
+    '          erased files with their taken-over blocks filled in, the',
+    '          unallocated blocks holding data, and a report of it all,',
+    '          for recovering erased files by hand.',
 ])
 
 
@@ -250,10 +256,54 @@ def _sysgen(args: list[str]) -> None:
         _write_new_file(destination, tracks)
 
 
-# The disk image commands, named after their CP/M counterparts. They work
-# on an image from the host, without the machine.
+def _split(args: list[str]) -> None:
+    '''Take an image apart into a directory: the system tracks, the
+    directory, the live files by user area, the erased files with the
+    blocks taken over since filled in, the unallocated blocks holding
+    data, and the part beyond the format, with a report of it all. Every
+    byte of the image lands in one of them, for inspection and for
+    piecing erased files back together by hand.'''
+    if len(args) != 2:
+        raise _usage('split')
+    image, directory = Path(args[0]), Path(args[1])
+    disk = _read_disk(image)
+    if directory.exists():
+        if not directory.is_dir() or any(directory.iterdir()):
+            raise ValueError(f'{directory}: not an empty directory')
+    else:
+        directory.mkdir()
+
+    def write(*parts: str, data: bytes) -> None:
+        path = directory.joinpath(*parts)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+
+    # A CP/M name may hold a slash, which a host name cannot.
+    def host_name(name: str) -> str:
+        return name.replace('/', '%2F')
+
+    parts = cpm80.DiskMap(disk).split()
+    write('system.bin', data=parts.system)
+    write('directory.bin', data=parts.directory)
+    for user, name, data in parts.files:
+        write('files', str(user), host_name(name), data=data)
+    for slot, name, data in parts.erased_files:
+        write('erased', f'{slot:03}-{host_name(name)}', data=data)
+    for block, data in parts.unallocated.items():
+        write('unallocated', f'block-{block:03}.bin', data=data)
+    beyond = bytes(disk)[DISK_FORMAT.disk_size:]
+    if beyond:
+        write('beyond-format.bin', data=beyond)
+    report = (f'Image: {image}\n{parts.report}'
+              f'Beyond the format: {len(beyond)} bytes\n')
+    write('report.txt', data=report.encode())
+
+
+# The disk image commands, named after their CP/M counterparts, and split,
+# which has none. They work on an image from the host, without the
+# machine.
 _COMMANDS = {'dir': _dir, 'save': _save, 'ren': _ren, 'era': _era,
-             'format': _format, 'sysgen': _sysgen}
+             'format': _format, 'sysgen': _sysgen, 'split': _split}
 
 
 def run_command(command: str, args: list[str]) -> None:
