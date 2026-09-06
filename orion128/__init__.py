@@ -19,12 +19,12 @@ from ._machine import (
     SCREEN_WIDTH,
     VIDEO_BASE,
     VIDEO_SIZE,
-    ORDOSFile,
     Orion128Machine,
     Orion128MachineMixin,
     Orion128Z80Machine,
 )
 from ._main import main
+from ._ordos import ORDOSFile
 
 __all__ = [
     'CPU_FREQUENCY',

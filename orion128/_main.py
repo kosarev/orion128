@@ -13,12 +13,8 @@ from pathlib import Path
 from ._display import Display
 from ._floppy import is_disk_image
 from ._keyboard import MS7007, RK86
-from ._machine import (
-    CPU_FREQUENCY,
-    ORDOSFile,
-    Orion128Machine,
-    Orion128Z80Machine,
-)
+from ._machine import CPU_FREQUENCY, Orion128Machine, Orion128Z80Machine
+from ._ordos import ORDOSFile
 
 # The window is redrawn this many times a second, and the processor runs a
 # matching slice of ticks between redraws, so it runs at about real speed.
