@@ -150,7 +150,8 @@ def test_split(tmp_path: Path) -> None:
         b'kept')
     assert (parts / 'files' / '0' / 'A%2FB.TXT').read_bytes().startswith(
         b'slash')
-    erased, = (parts / 'erased').iterdir()
+    erased, = (p for p in (parts / 'erased').iterdir()
+               if p.suffix != '.txt')
     assert erased.name.endswith('-GONE.TXT')
     assert erased.read_bytes().startswith(b'gone')
     assert not (parts / 'unallocated').exists()
@@ -159,6 +160,15 @@ def test_split(tmp_path: Path) -> None:
     report = (parts / 'report.txt').read_text()
     assert 'KEPT.TXT' in report and 'GONE.TXT' in report
     assert report.endswith('Beyond the format: 22528 bytes\n')
+
+    # Each part has its lines of the report beside it.
+    note = erased.with_name(erased.name + '.txt').read_text()
+    assert note.splitlines()[1] == '    all blocks intact'
+    assert note in report
+    assert (parts / 'system.bin.txt').read_text() == (
+        f'System tracks: {SYSTEM_TRACKS_SIZE} bytes\n')
+    assert (parts / 'beyond-format.bin.txt').read_text() == (
+        'Beyond the format: 22528 bytes\n')
 
     # The directory must be empty, or not there yet.
     with pytest.raises(SystemExit, match='not an empty directory'):

@@ -278,30 +278,34 @@ def _split(args: list[str]) -> None:
     else:
         directory.mkdir()
 
-    def write(*parts: str, data: bytes) -> None:
+    # Each part goes in as a file, with what the report says about it
+    # in a .txt beside it.
+    def write(*parts: str, part: cpm80.DiskMap.Part) -> None:
         path = directory.joinpath(*parts)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(data)
+        path.write_bytes(part.data)
+        path.with_name(path.name + '.txt').write_text(part.note)
 
     # A CP/M name may hold a slash, which a host name cannot.
     def host_name(name: str) -> str:
         return name.replace('/', '%2F')
 
     parts = cpm80.DiskMap(disk).split()
-    write('system.bin', data=parts.system)
-    write('directory.bin', data=parts.directory)
-    for user, name, data in parts.files:
-        write('files', str(user), host_name(name), data=data)
-    for slot, name, data in parts.erased_files:
-        write('erased', f'{slot:03}-{host_name(name)}', data=data)
-    for block, data in parts.unallocated.items():
-        write('unallocated', f'block-{block:03}.bin', data=data)
+    write('system.bin', part=parts.system)
+    write('directory.bin', part=parts.directory)
+    for user, name, part in parts.files:
+        write('files', str(user), host_name(name), part=part)
+    for slot, name, part in parts.erased_files:
+        write('erased', f'{slot:03}-{host_name(name)}', part=part)
+    for block, part in parts.unallocated.items():
+        write('unallocated', f'block-{block:03}.bin', part=part)
     beyond = bytes(disk)[DISK_FORMAT.disk_size:]
+    beyond_note = f'Beyond the format: {len(beyond)} bytes\n'
     if beyond:
-        write('beyond-format.bin', data=beyond)
-    report = (f'Image: {image}\n{parts.report}'
-              f'Beyond the format: {len(beyond)} bytes\n')
-    write('report.txt', data=report.encode())
+        write('beyond-format.bin',
+              part=cpm80.DiskMap.Part(beyond, beyond_note))
+    report = f'Image: {image}\n{parts.report}{beyond_note}'
+    (directory / 'report.txt').write_text(report)
 
 
 def _strip(args: list[str]) -> None:
